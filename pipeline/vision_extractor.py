@@ -21,7 +21,9 @@ _EXTRACTION_PROMPT = (
     "these keys: brand_name (str), handle (str, Instagram username WITHOUT "
     "the @ symbol), niche (str, product/service category), tagline (str, "
     "short brand tagline if visible), email (str or null), phone (str or "
-    "null), website (str or null), confidence (float between 0 and 1 "
+    "null), website (str or null), post_content (str, ALL visible text from "
+    "the post including caption, hashtags, offers, prices, slogans, CTAs — "
+    "copy it verbatim, nothing omitted), confidence (float between 0 and 1 "
     "indicating how confident you are that this is a real brand and the "
     "handle is correct). If a field is not visible use null."
 )
@@ -94,6 +96,7 @@ def _parse_response(raw_text: str) -> dict:
         "handle": (_clean_str(payload.get("handle")) or "").lstrip("@"),
         "niche": _clean_str(payload.get("niche")),
         "tagline": _clean_str(payload.get("tagline")),
+        "post_content": _clean_str(payload.get("post_content")),
         "email": _clean_str(payload.get("email")),
         "phone": _clean_str(payload.get("phone")),
         "website": _clean_str(payload.get("website")),

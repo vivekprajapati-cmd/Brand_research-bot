@@ -113,11 +113,12 @@ def _run_pipeline(
         # STEP 5 — Write to Google Sheets
         status = "Review Needed" if (brand.get("confidence") or 0) < _CONFIDENCE_THRESHOLD else "To Contact"
         logger.info("[STEP 5/5] Writing to Google Sheets | status=%s", status)
+        post_data = brand.get("post_content") or ""
         brand_data = {
             "brand_name": brand.get("brand_name"),
             "handle": handle,
             "niche": brand.get("niche"),
-            "tagline": brand.get("tagline"),
+            "post_data": post_data,
             "email": brand.get("email"),
             "phone": brand.get("phone"),
             "website": brand.get("website"),
