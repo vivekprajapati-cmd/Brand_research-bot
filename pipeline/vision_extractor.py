@@ -54,7 +54,7 @@ def _call_gemini(api_key: str, image_path: str) -> str:
     with open(image_path, "rb") as fh:
         image_bytes = fh.read()
     response = client.models.generate_content(
-        model="gemini-3.5-flash",
+        model="gemini-2.5-flash-lite",
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type=_guess_mime(image_path)),
             _EXTRACTION_PROMPT,

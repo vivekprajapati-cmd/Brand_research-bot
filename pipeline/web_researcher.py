@@ -82,7 +82,7 @@ def _format_snippets(results: list[dict], max_per_result: int = 5) -> str:
 def _synthesise(api_key: str, brand_name: str, handle: str, snippets: str) -> str:
     client = genai.Client(api_key=api_key)
     prompt = _SYNTHESIS_PROMPT.format(brand=brand_name, handle=handle, snippets=snippets)
-    response = client.models.generate_content(model="gemini-3.5-flash", contents=prompt)
+    response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
     return (response.text or "").strip()
 
 
