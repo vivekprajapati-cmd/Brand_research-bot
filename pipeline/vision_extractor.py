@@ -104,8 +104,6 @@ def _parse_response(raw_text: str) -> dict:
     }
     if not brand["handle"]:
         brand["handle"] = None
-    if not brand["brand_name"] and not brand["handle"]:
-        raise _InvalidResponse("No brand name or handle extracted")
     return brand
 
 

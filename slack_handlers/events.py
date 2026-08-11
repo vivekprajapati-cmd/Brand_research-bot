@@ -79,9 +79,10 @@ def _run_pipeline(
         # STEP 3 — Instagram profile scrape
         # Prefer handle from instaloader (authoritative) over Gemini's OCR guess
         handle = ig_owner or brand.get("handle") or ""
-        if ig_owner and not brand.get("handle"):
-            logger.info("[STEP 3/5] Using owner handle from instaloader | handle=@%s", ig_owner)
-            brand["handle"] = ig_owner
+        if ig_owner:
+            brand["handle"] = brand.get("handle") or ig_owner
+            brand["brand_name"] = brand.get("brand_name") or ig_owner
+            logger.info("[STEP 3/5] Using instaloader owner as fallback | handle=@%s", ig_owner)
         profile = {}
         if handle:
             logger.info("[STEP 3/5] Scraping Instagram profile | handle=@%s", handle)
