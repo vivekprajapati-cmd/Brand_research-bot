@@ -61,11 +61,12 @@ def _run_pipeline(
 
         # STEP 1 — Download image
         logger.info("[STEP 1/5] Downloading image | trigger=%s", trigger)
+        ig_owner = None
         if instagram_url:
-            image_path = downloader.download_from_instagram_url(instagram_url)
+            image_path, ig_owner = downloader.download_from_instagram_url(instagram_url)
         else:
             image_path = downloader.download_image(file_info, client)
-        logger.info("[STEP 1/5] Download complete | path=%s", image_path)
+        logger.info("[STEP 1/5] Download complete | path=%s | ig_owner=@%s", image_path, ig_owner)
 
         # STEP 2 — Gemini Vision extraction
         logger.info("[STEP 2/5] Sending image to Gemini Vision | path=%s", image_path)
@@ -76,7 +77,11 @@ def _run_pipeline(
         )
 
         # STEP 3 — Instagram profile scrape
-        handle = brand.get("handle") or ""
+        # Prefer handle from instaloader (authoritative) over Gemini's OCR guess
+        handle = ig_owner or brand.get("handle") or ""
+        if ig_owner and not brand.get("handle"):
+            logger.info("[STEP 3/5] Using owner handle from instaloader | handle=@%s", ig_owner)
+            brand["handle"] = ig_owner
         profile = {}
         if handle:
             logger.info("[STEP 3/5] Scraping Instagram profile | handle=@%s", handle)

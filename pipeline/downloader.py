@@ -134,14 +134,14 @@ def _full_file_info(slack_client, file_id: str, fallback: dict) -> dict:
     return fallback
 
 
-def download_from_instagram_url(url: str) -> str:
+def download_from_instagram_url(url: str) -> tuple[str, str | None]:
     """Download the first image from an Instagram post URL via instaloader.
 
     Args:
         url: public Instagram post/reel URL.
 
     Returns:
-        Absolute path to the downloaded temp image file.
+        Tuple of (absolute image path, owner_username or None).
 
     Raises:
         DownloadError: if the shortcode can't be parsed or instaloader fails.
@@ -159,9 +159,9 @@ def download_from_instagram_url(url: str) -> str:
         L = instaloader.Instaloader(quiet=True)
         post = instaloader.Post.from_shortcode(L.context, shortcode)
 
-        # post.url is the direct CDN image URL (thumbnail for videos, full image for photos)
+        owner = post.owner_username
         img_url = post.url
-        logger.info("Resolved image URL | shortcode=%s | is_video=%s", shortcode, post.is_video)
+        logger.info("Resolved image URL | shortcode=%s | owner=@%s | is_video=%s", shortcode, owner, post.is_video)
 
         response = requests.get(img_url, timeout=30)
         if response.status_code >= 400:
@@ -172,7 +172,7 @@ def download_from_instagram_url(url: str) -> str:
             fh.write(response.content)
 
         logger.info("Downloaded IG post image | path=%s | bytes=%d", dst, len(response.content))
-        return dst
+        return dst, owner
     except instaloader.exceptions.InstaloaderException as exc:
         raise DownloadError(f"Instaloader failed for {shortcode}: {exc}") from exc
 

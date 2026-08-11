@@ -20,6 +20,7 @@ _COLUMNS = [
     "Brand Name",
     "Instagram Handle",
     "Niche / Category",
+    "Tagline",
     "Followers",
     "Following",
     "Total Posts",
@@ -55,6 +56,7 @@ def _row_from_brand(brand_data: dict) -> list:
         brand_data.get("brand_name") or "",
         (brand_data.get("handle") or "").lstrip("@"),
         brand_data.get("niche") or "",
+        brand_data.get("tagline") or "",
         _fmt_int(profile.get("followers")),
         _fmt_int(profile.get("following")),
         _fmt_int(profile.get("post_count")),
@@ -126,13 +128,18 @@ def write_brand(
             tab_name = CONFIG["google_sheet_tab"]
 
     try:
-        sheet = client.open_by_key(sheet_id).worksheet(tab_name)
+        spreadsheet = client.open_by_key(sheet_id)
     except gspread.SpreadsheetNotFound as exc:
         raise SheetWriteError(f"Spreadsheet not found: {sheet_id}") from exc
-    except gspread.WorksheetNotFound as exc:
-        raise SheetWriteError(f"Worksheet not found: {tab_name}") from exc
     except RefreshError as exc:
         raise SheetWriteError(f"Google auth refresh failed: {exc}") from exc
+
+    try:
+        sheet = spreadsheet.worksheet(tab_name)
+    except gspread.WorksheetNotFound:
+        sheet = spreadsheet.add_worksheet(title=tab_name, rows=1000, cols=len(_COLUMNS))
+        sheet.append_row(_COLUMNS)
+        logger.info("Created worksheet %r with headers", tab_name)
 
     handle = brand_data.get("handle") or ""
     row = _row_from_brand(brand_data)
@@ -140,7 +147,7 @@ def write_brand(
     existing = _find_handle_row(sheet, handle)
     try:
         if existing is not None:
-            sheet.update(f"A{existing}:O{existing}", [row])
+            sheet.update(f"A{existing}:P{existing}", [row])
             action = "updated"
             logger.info("Updated row %d for @%s", existing, handle)
         else:
