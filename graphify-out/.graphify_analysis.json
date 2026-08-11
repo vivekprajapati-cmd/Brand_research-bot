@@ -1,0 +1,464 @@
+{
+  "communities": {
+    "0": [
+      "pipeline_downloader",
+      "pipeline_downloader_cleanup",
+      "pipeline_downloader_download_image",
+      "pipeline_downloader_download_url",
+      "pipeline_downloader_downloaderror",
+      "pipeline_downloader_file_is_image",
+      "pipeline_downloader_full_file_info",
+      "pipeline_downloader_py_exception",
+      "pipeline_downloader_rationale_1",
+      "pipeline_downloader_rationale_120",
+      "pipeline_downloader_rationale_133",
+      "pipeline_downloader_rationale_24",
+      "pipeline_downloader_rationale_28",
+      "pipeline_downloader_rationale_32",
+      "pipeline_downloader_rationale_41",
+      "pipeline_downloader_rationale_53",
+      "pipeline_downloader_rationale_65",
+      "pipeline_downloader_rationale_74",
+      "pipeline_downloader_resolve_download_url",
+      "pipeline_downloader_validate_image_bytes",
+      "pipeline_downloader_validationerror",
+      "t",
+      "tests_unit_test_downloader",
+      "tests_unit_test_downloader_fakeresponse",
+      "tests_unit_test_downloader_fakeresponse_init",
+      "tests_unit_test_downloader_jpeg_bytes",
+      "tests_unit_test_downloader_test_invalid_image_bytes_raise_validation_error",
+      "tests_unit_test_downloader_test_missing_file_id_raises_download_error",
+      "tests_unit_test_downloader_test_no_url_raises_download_error",
+      "tests_unit_test_downloader_test_non_image_raises_validation_error",
+      "tests_unit_test_downloader_test_slack_http_error_raises_download_error",
+      "tests_unit_test_downloader_test_valid_image_downloads_to_tmp",
+      "tests_unit_test_downloader_test_validate_image_bytes_rejects_garbage",
+      "utils_retry_py_exception",
+      "utils_retry_rationale_34",
+      "utils_retry_retry",
+      "valueerror"
+    ],
+    "1": [
+      "instaloader",
+      "pipeline_instagram_scraper",
+      "pipeline_instagram_scraper_delay",
+      "pipeline_instagram_scraper_get_profile",
+      "pipeline_instagram_scraper_loader",
+      "pipeline_instagram_scraper_privateprofileerror",
+      "pipeline_instagram_scraper_profilenotfounderror",
+      "pipeline_instagram_scraper_public_profile",
+      "pipeline_instagram_scraper_py_exception",
+      "pipeline_instagram_scraper_rationale_1",
+      "pipeline_instagram_scraper_rationale_19",
+      "pipeline_instagram_scraper_rationale_23",
+      "pipeline_instagram_scraper_rationale_27",
+      "pipeline_instagram_scraper_rationale_48",
+      "pipeline_instagram_scraper_rationale_58",
+      "tests_unit_test_instagram_scraper",
+      "tests_unit_test_instagram_scraper_mockcontext",
+      "tests_unit_test_instagram_scraper_mockloader",
+      "tests_unit_test_instagram_scraper_mockloader_context",
+      "tests_unit_test_instagram_scraper_mockloader_init",
+      "tests_unit_test_instagram_scraper_mockloader_login",
+      "tests_unit_test_instagram_scraper_mockprofile",
+      "tests_unit_test_instagram_scraper_mockprofile_init",
+      "tests_unit_test_instagram_scraper_profile",
+      "tests_unit_test_instagram_scraper_public_profile",
+      "tests_unit_test_instagram_scraper_test_at_prefix_stripped",
+      "tests_unit_test_instagram_scraper_test_connection_error_propagates",
+      "tests_unit_test_instagram_scraper_test_delay_pauses",
+      "tests_unit_test_instagram_scraper_test_empty_handle_raises_profile_not_found",
+      "tests_unit_test_instagram_scraper_test_loader_logs_in_with_credentials",
+      "tests_unit_test_instagram_scraper_test_private_profile_raises_private_profile_error",
+      "tests_unit_test_instagram_scraper_test_public_profile_returns_expected_dict",
+      "tests_unit_test_instagram_scraper_test_unknown_handle_raises_profile_not_found"
+    ],
+    "2": [
+      "pipeline_sheets_writer_py_exception",
+      "pipeline_sheets_writer_rationale_40",
+      "pipeline_sheets_writer_sheetwriteerror",
+      "tests_unit_test_sheets_writer",
+      "tests_unit_test_sheets_writer_api_error",
+      "tests_unit_test_sheets_writer_brand_data",
+      "tests_unit_test_sheets_writer_fakeclient",
+      "tests_unit_test_sheets_writer_fakeclient_init",
+      "tests_unit_test_sheets_writer_fakeclient_open_by_key",
+      "tests_unit_test_sheets_writer_fakeresponse",
+      "tests_unit_test_sheets_writer_fakeresponse_init",
+      "tests_unit_test_sheets_writer_fakeresponse_json",
+      "tests_unit_test_sheets_writer_fakesheet",
+      "tests_unit_test_sheets_writer_fakesheet_init",
+      "tests_unit_test_sheets_writer_fakesheet_worksheet",
+      "tests_unit_test_sheets_writer_fakeworksheet",
+      "tests_unit_test_sheets_writer_fakeworksheet_append_row",
+      "tests_unit_test_sheets_writer_fakeworksheet_get_all_values",
+      "tests_unit_test_sheets_writer_fakeworksheet_init",
+      "tests_unit_test_sheets_writer_fakeworksheet_update",
+      "tests_unit_test_sheets_writer_test_client_built_from_creds",
+      "tests_unit_test_sheets_writer_test_existing_handle_updates_row",
+      "tests_unit_test_sheets_writer_test_fmt_int_returns_empty_for_non_int",
+      "tests_unit_test_sheets_writer_test_get_all_values_failure_raises_sheet_write_error",
+      "tests_unit_test_sheets_writer_test_new_handle_appends_row",
+      "tests_unit_test_sheets_writer_test_refresh_error_on_open_raises",
+      "tests_unit_test_sheets_writer_test_row_mapping_for_unverified_empty_profile",
+      "tests_unit_test_sheets_writer_test_sheet_write_error_on_api_failure",
+      "tests_unit_test_sheets_writer_test_spreadsheet_not_found_raises",
+      "tests_unit_test_sheets_writer_test_status_default_is_to_contact",
+      "tests_unit_test_sheets_writer_test_worksheet_not_found_raises"
+    ],
+    "3": [
+      "logger",
+      "logrecord",
+      "pipeline_sheets_writer",
+      "pipeline_sheets_writer_client",
+      "pipeline_sheets_writer_find_handle_row",
+      "pipeline_sheets_writer_fmt_int",
+      "pipeline_sheets_writer_rationale_1",
+      "pipeline_sheets_writer_rationale_103",
+      "pipeline_sheets_writer_rationale_51",
+      "pipeline_sheets_writer_rationale_82",
+      "pipeline_sheets_writer_row_from_brand",
+      "pipeline_sheets_writer_write_brand",
+      "tests_unit_test_logger",
+      "tests_unit_test_logger_record",
+      "tests_unit_test_logger_record_formatexception",
+      "tests_unit_test_logger_record_getmessage",
+      "tests_unit_test_logger_record_init",
+      "tests_unit_test_logger_test_get_logger_returns_singleton",
+      "tests_unit_test_logger_test_json_formatter_outputs_json",
+      "tests_unit_test_logger_test_log_event_emits_with_extra",
+      "utils_logger",
+      "utils_logger_get_logger",
+      "utils_logger_jsonformatter",
+      "utils_logger_jsonformatter_format",
+      "utils_logger_log_event",
+      "utils_logger_rationale_1",
+      "utils_logger_rationale_16",
+      "utils_logger_rationale_34",
+      "utils_logger_rationale_51"
+    ],
+    "4": [
+      "config",
+      "config_configerror",
+      "config_google_creds_dict",
+      "config_int_env",
+      "config_load_config",
+      "config_max_retries",
+      "config_rationale_1",
+      "config_rationale_36",
+      "config_rationale_88",
+      "config_validate_optional",
+      "config_validate_required",
+      "main",
+      "main_health",
+      "main_rationale_1",
+      "main_rationale_39",
+      "main_rationale_45",
+      "main_slack_events",
+      "request",
+      "tests_integration_test_main",
+      "tests_integration_test_main_test_health_returns_ok",
+      "tests_integration_test_main_test_slack_events_route_exists"
+    ],
+    "5": [
+      "pipeline_vision_extractor_extractionerror",
+      "pipeline_vision_extractor_py_exception",
+      "pipeline_vision_extractor_rationale_38",
+      "tests_unit_test_vision_extractor",
+      "tests_unit_test_vision_extractor_brand_payload",
+      "tests_unit_test_vision_extractor_fakemodel",
+      "tests_unit_test_vision_extractor_fakemodel_generate_content",
+      "tests_unit_test_vision_extractor_fakemodel_init",
+      "tests_unit_test_vision_extractor_fakeresponse",
+      "tests_unit_test_vision_extractor_fakeresponse_init",
+      "tests_unit_test_vision_extractor_test_confidence_clamped",
+      "tests_unit_test_vision_extractor_test_empty_response_raises",
+      "tests_unit_test_vision_extractor_test_fenced_json_is_parsed",
+      "tests_unit_test_vision_extractor_test_handle_at_prefix_stripped",
+      "tests_unit_test_vision_extractor_test_malformed_json_raises_extraction_error",
+      "tests_unit_test_vision_extractor_test_missing_file_raises_file_not_found",
+      "tests_unit_test_vision_extractor_test_no_brand_or_handle_raises",
+      "tests_unit_test_vision_extractor_test_null_fields_become_none",
+      "tests_unit_test_vision_extractor_test_retry_fires_on_retryable_exception",
+      "tests_unit_test_vision_extractor_test_valid_json_parsed_correctly"
+    ],
+    "6": [
+      "pipeline_web_researcher",
+      "pipeline_web_researcher_collect_search_results",
+      "pipeline_web_researcher_ddg_search",
+      "pipeline_web_researcher_format_snippets",
+      "pipeline_web_researcher_py_exception",
+      "pipeline_web_researcher_rationale_1",
+      "pipeline_web_researcher_rationale_103",
+      "pipeline_web_researcher_rationale_41",
+      "pipeline_web_researcher_rationale_45",
+      "pipeline_web_researcher_rationale_52",
+      "pipeline_web_researcher_research_brand",
+      "pipeline_web_researcher_researcherror",
+      "pipeline_web_researcher_synthesise",
+      "tests_unit_test_web_researcher",
+      "tests_unit_test_web_researcher_ddg_result",
+      "tests_unit_test_web_researcher_test_all_searches_fail_returns_fallback",
+      "tests_unit_test_web_researcher_test_collect_search_results_failure_raises",
+      "tests_unit_test_web_researcher_test_empty_results_generate_fallback",
+      "tests_unit_test_web_researcher_test_research_returns_notes_and_sources",
+      "tests_unit_test_web_researcher_test_synthesis_failure_uses_fallback_brief"
+    ],
+    "7": [
+      "pipeline_vision_extractor",
+      "pipeline_vision_extractor_call_gemini",
+      "pipeline_vision_extractor_clean_str",
+      "pipeline_vision_extractor_confidence",
+      "pipeline_vision_extractor_configure_api",
+      "pipeline_vision_extractor_extract_brand",
+      "pipeline_vision_extractor_guess_mime",
+      "pipeline_vision_extractor_invalidresponse",
+      "pipeline_vision_extractor_local_image",
+      "pipeline_vision_extractor_parse_response",
+      "pipeline_vision_extractor_rationale_1",
+      "pipeline_vision_extractor_rationale_141",
+      "pipeline_vision_extractor_rationale_42",
+      "pipeline_vision_extractor_rationale_50",
+      "pipeline_vision_extractor_rationale_73",
+      "pipeline_vision_extractor_rationale_81"
+    ],
+    "8": [
+      "tests_integration_test_pipeline_flow",
+      "tests_integration_test_pipeline_flow_file_info",
+      "tests_integration_test_pipeline_flow_mock_download",
+      "tests_integration_test_pipeline_flow_mock_instagram",
+      "tests_integration_test_pipeline_flow_mock_research",
+      "tests_integration_test_pipeline_flow_mock_vision",
+      "tests_integration_test_pipeline_flow_mockclient",
+      "tests_integration_test_pipeline_flow_mockclient_chat_getpermalink",
+      "tests_integration_test_pipeline_flow_mockclient_chat_postmessage",
+      "tests_integration_test_pipeline_flow_mockclient_files_info",
+      "tests_integration_test_pipeline_flow_mockclient_init",
+      "tests_integration_test_pipeline_flow_sync",
+      "tests_integration_test_pipeline_flow_test_full_pipeline_writes_sheet_row",
+      "tests_integration_test_pipeline_flow_test_pipeline_error_posts_to_slack",
+      "tests_integration_test_pipeline_flow_test_pipeline_low_confidence_sets_review_needed",
+      "tests_integration_test_pipeline_flow_test_pipeline_private_profile_continues"
+    ],
+    "9": [
+      "tests_integration_test_slack_events",
+      "tests_integration_test_slack_events_image_file",
+      "tests_integration_test_slack_events_mockclient",
+      "tests_integration_test_slack_events_mockclient_chat_getpermalink",
+      "tests_integration_test_slack_events_mockclient_chat_postmessage",
+      "tests_integration_test_slack_events_mockclient_files_info",
+      "tests_integration_test_slack_events_mockclient_init",
+      "tests_integration_test_slack_events_sync",
+      "tests_integration_test_slack_events_syncexecutor",
+      "tests_integration_test_slack_events_syncexecutor_submit",
+      "tests_integration_test_slack_events_test_bot_message_ignored",
+      "tests_integration_test_slack_events_test_file_shared_ignores_bot_user",
+      "tests_integration_test_slack_events_test_file_shared_triggers_pipeline",
+      "tests_integration_test_slack_events_test_is_relevant_file_accepts_image",
+      "tests_integration_test_slack_events_test_is_relevant_file_rejects_pdf",
+      "tests_integration_test_slack_events_test_message_with_image_triggers_only_image"
+    ],
+    "10": [
+      "app",
+      "slack_handlers_events",
+      "slack_handlers_events_handle_file_shared",
+      "slack_handlers_events_is_relevant_file",
+      "slack_handlers_events_permalink_for",
+      "slack_handlers_events_post_thread",
+      "slack_handlers_events_rationale_1",
+      "slack_handlers_events_rationale_128",
+      "slack_handlers_events_rationale_154",
+      "slack_handlers_events_rationale_29",
+      "slack_handlers_events_rationale_49",
+      "slack_handlers_events_register_handlers",
+      "slack_handlers_events_run_pipeline",
+      "tests_integration_test_slack_events_handlers"
+    ],
+    "11": [
+      "tests_unit_test_retry",
+      "tests_unit_test_retry_test_backoff_increases_delay",
+      "tests_unit_test_retry_test_gives_up_after_max_retries",
+      "tests_unit_test_retry_test_logger_warns_on_retry",
+      "tests_unit_test_retry_test_non_matching_exception_not_retried",
+      "tests_unit_test_retry_test_retries_then_succeeds",
+      "tests_unit_test_retry_test_retry_decorator_raises_on_bad_tries",
+      "tests_unit_test_retry_test_succeeds_first_attempt",
+      "utils_retry",
+      "utils_retry_rationale_1",
+      "utils_retry_rationale_17",
+      "utils_retry_sleep_with_jitter"
+    ],
+    "12": [
+      "tests_unit_test_config",
+      "tests_unit_test_config_reload_config",
+      "tests_unit_test_config_set_all_env",
+      "tests_unit_test_config_test_invalid_creds_json_raises",
+      "tests_unit_test_config_test_load_config_populates_defaults",
+      "tests_unit_test_config_test_load_config_respects_overrides",
+      "tests_unit_test_config_test_max_retries_bounds_raise",
+      "tests_unit_test_config_test_missing_required_vars_raise"
+    ],
+    "13": [
+      "tests_conftest",
+      "tests_conftest_mock_gemini_brand",
+      "tests_conftest_mock_slack_client",
+      "tests_conftest_sample_image",
+      "tests_conftest_set_test_env",
+      "tests_conftest_slack_file_info"
+    ],
+    "14": [
+      "pipeline_init"
+    ],
+    "15": [
+      "slack_handlers_init"
+    ],
+    "16": [
+      "tests_init"
+    ],
+    "17": [
+      "tests_integration_init"
+    ],
+    "18": [
+      "tests_unit_init"
+    ],
+    "19": [
+      "utils_init"
+    ]
+  },
+  "cohesion": {
+    "0": 0.0945945945945946,
+    "1": 0.12878787878787878,
+    "2": 0.13333333333333333,
+    "3": 0.10837438423645321,
+    "4": 0.14761904761904762,
+    "5": 0.20526315789473684,
+    "6": 0.14736842105263157,
+    "7": 0.2,
+    "8": 0.26666666666666666,
+    "9": 0.16666666666666666,
+    "10": 0.17582417582417584,
+    "11": 0.16666666666666666,
+    "12": 0.6071428571428571,
+    "13": 0.3333333333333333,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0
+  },
+  "gods": [
+    {
+      "id": "pipeline_sheets_writer_sheetwriteerror",
+      "label": "SheetWriteError",
+      "degree": 15
+    },
+    {
+      "id": "utils_logger_get_logger",
+      "label": "get_logger()",
+      "degree": 14
+    },
+    {
+      "id": "tests_unit_test_vision_extractor_fakemodel",
+      "label": "FakeModel",
+      "degree": 13
+    },
+    {
+      "id": "pipeline_instagram_scraper_profilenotfounderror",
+      "label": "ProfileNotFoundError",
+      "degree": 12
+    },
+    {
+      "id": "pipeline_downloader_downloaderror",
+      "label": "DownloadError",
+      "degree": 11
+    },
+    {
+      "id": "pipeline_vision_extractor_extractionerror",
+      "label": "ExtractionError",
+      "degree": 11
+    },
+    {
+      "id": "tests_unit_test_instagram_scraper_mockloader",
+      "label": "MockLoader",
+      "degree": 11
+    },
+    {
+      "id": "tests_unit_test_sheets_writer_fakeworksheet",
+      "label": "FakeWorksheet",
+      "degree": 11
+    },
+    {
+      "id": "tests_unit_test_sheets_writer_brand_data",
+      "label": "_brand_data()",
+      "degree": 11
+    },
+    {
+      "id": "pipeline_downloader_validationerror",
+      "label": "ValidationError",
+      "degree": 10
+    }
+  ],
+  "surprises": [
+    {
+      "source": "test_missing_file_id_raises_download_error()",
+      "target": "DownloadError",
+      "source_files": [
+        "tests/unit/test_downloader.py",
+        "pipeline/downloader.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `test_missing_file_id_raises_download_error()` unexpectedly reaches hub `DownloadError`"
+    },
+    {
+      "source": "test_non_image_raises_validation_error()",
+      "target": "ValidationError",
+      "source_files": [
+        "tests/unit/test_downloader.py",
+        "pipeline/downloader.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `test_non_image_raises_validation_error()` unexpectedly reaches hub `ValidationError`"
+    },
+    {
+      "source": "test_validate_image_bytes_rejects_garbage()",
+      "target": "ValidationError",
+      "source_files": [
+        "tests/unit/test_downloader.py",
+        "pipeline/downloader.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `test_validate_image_bytes_rejects_garbage()` unexpectedly reaches hub `ValidationError`"
+    },
+    {
+      "source": "_run_pipeline()",
+      "target": "ProfileNotFoundError",
+      "source_files": [
+        "slack_handlers/events.py",
+        "pipeline/instagram_scraper.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "test_collect_search_results_failure_raises()",
+      "target": "ResearchError",
+      "source_files": [
+        "tests/unit/test_web_researcher.py",
+        "pipeline/web_researcher.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `test_collect_search_results_failure_raises()` unexpectedly reaches hub `ResearchError`"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
