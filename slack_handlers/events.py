@@ -48,7 +48,9 @@ def _friendly_error(exc: Exception) -> str:
         return "The Apify scraper failed. LinkedIn or Instagram may have blocked the request — try again in a few minutes."
     if "timed out" in msg.lower() or "TimeoutError" in msg or "timeout" in msg.lower():
         return "The request timed out. The platform may be slow right now — try again shortly."
-    if "No post data" in msg:
+    if "Cannot derive a LinkedIn profile URL" in msg:
+        return "Couldn't identify the LinkedIn author from that URL. Try a /posts/handle or /in/handle link instead of a feed/update URL."
+    if "No post data" in msg or "No posts returned" in msg:
         return "Couldn't find any data for this post. It may be private or the URL may be incorrect."
     if "No image found" in msg or "not a valid image" in msg.lower():
         return "The file doesn't look like a valid image. Try sending a JPG or PNG screenshot."
@@ -201,56 +203,51 @@ def _run_linkedin_pipeline(
     try:
         _post_thread(client, channel, message_ts, "Processing LinkedIn post...")
 
-        # STEP 1 — Scrape LinkedIn post via Apify
-        logger.info("[STEP 1/4] Scraping LinkedIn post | url=%s", linkedin_url)
+        # STEP 1 — Scrape LinkedIn post + author info via harvestapi (one call)
+        logger.info("[STEP 1/3] Scraping LinkedIn post | url=%s", linkedin_url)
         post = linkedin_scraper.scrape_post(linkedin_url)
-        author_name = post.get("authorName") or post.get("author") or ""
-        company_name = post.get("companyName") or post.get("company") or author_name
-        post_text = post.get("text") or post.get("content") or ""
-        author_url = post.get("authorUrl") or post.get("profileUrl") or post.get("authorUrl") or ""
-        logger.info("[STEP 1/4] Post scraped | author=%s | text_length=%d", author_name, len(post_text))
+        author_name = post.get("authorName") or ""
+        company_name = post.get("company") or author_name
+        post_text = post.get("text") or ""
+        author_url = post.get("authorUrl") or ""
+        followers = int(post.get("followersCount") or 0)
+        website = post.get("website") or None
+        logger.info("[STEP 1/3] Scraped | author=%s | followers=%d | text_len=%d", author_name, followers, len(post_text))
 
-        # STEP 2 — Scrape LinkedIn profile via Apify
-        profile = {}
-        if author_url:
-            logger.info("[STEP 2/4] Scraping LinkedIn profile | url=%s", author_url)
-            raw = linkedin_scraper.scrape_profile(author_url)
-            if raw:
-                profile = {
-                    "full_name": raw.get("fullName") or author_name,
-                    "bio": raw.get("about") or raw.get("headline") or "",
-                    "followers": int(raw.get("followersCount") or 0),
-                    "following": 0,
-                    "post_count": 0,
-                    "website": raw.get("website") or None,
-                    "is_verified": False,
-                    "is_private": False,
-                }
-                logger.info("[STEP 2/4] Profile scraped | followers=%s", profile.get("followers"))
+        profile = {
+            "full_name": author_name,
+            "bio": company_name,
+            "followers": followers,
+            "following": 0,
+            "post_count": 0,
+            "website": website,
+            "is_verified": False,
+            "is_private": False,
+        }
 
-        # STEP 3 — Web research
-        logger.info("[STEP 3/4] Starting web research | brand=%s", company_name)
+        # STEP 2 — Web research
+        logger.info("[STEP 2/3] Starting web research | brand=%s", company_name)
         research = web_researcher.research_brand(company_name, author_url)
-        logger.info("[STEP 3/4] Research complete | sources=%d", len(research.get("sources", [])))
+        logger.info("[STEP 2/3] Research complete | sources=%d", len(research.get("sources", [])))
 
-        # STEP 4 — Write to Sheets
+        # STEP 3 — Write to Sheets
         handle = author_url.rstrip("/").split("/")[-1] if author_url else company_name
         brand_data = {
             "platform": "LinkedIn",
             "brand_name": company_name,
             "handle": handle,
-            "niche": post.get("industry") or "",
+            "niche": "",
             "post_data": post_text,
             "email": None,
             "phone": None,
-            "website": profile.get("website"),
+            "website": website,
             "profile": profile,
             "research_notes": research.get("research_notes", ""),
             "sources": research.get("sources", []),
             "source_post_url": linkedin_url,
             "status": "To Contact",
         }
-        logger.info("[STEP 4/4] Writing to Google Sheets")
+        logger.info("[STEP 3/3] Writing to Google Sheets")
         result = sheets_writer.write_brand(brand_data)
         logger.info("[PIPELINE] DONE | platform=linkedin | brand=%s | row=%s", company_name, result["row_num"])
 
