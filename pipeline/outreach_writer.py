@@ -9,7 +9,7 @@ from utils.logger import get_logger
 
 logger = get_logger("pipeline.outreach_writer")
 
-_PROMPT_TEMPLATE = """You are writing outreach for AM:PM — a Gen Z short-form vertical video news app targeting 18-30 urban Indian digital natives. You are reaching out to brands for advertising or creator partnership.
+_PROMPT_TEMPLATE = """You are writing outreach on behalf of a full-service marketing agency (Chord / 1702 Marketing Agency). You are reaching out to potential clients — brands or individuals who may need marketing services.
 
 Brand info:
 - Name: {brand_name}
@@ -27,10 +27,10 @@ Generate two outreach messages and return ONLY valid JSON (no markdown):
 }}
 
 Rules:
-- linkedin_msg: max 400 characters. Casual, direct. Reference something specific from their content or niche. End with a soft CTA to connect or chat.
-- email: Full cold email. Include Subject line as first line ("Subject: ..."). Mention AM:PM briefly, reference the brand's content, propose a specific collaboration angle. No filler phrases. No "hope you are doing well". 3-4 short paragraphs max.
+- linkedin_msg: max 400 characters. Casual, direct. Reference something specific from their post or niche. End with a soft CTA to connect or chat. Do NOT mention AM:PM.
+- email: Full cold email. Include Subject line as first line ("Subject: ..."). Reference the brand's post or content specifically. Pitch marketing services relevant to what they need. No filler phrases. No "hope you are doing well". 3-4 short paragraphs max.
 - Both must feel personalised, not templated.
-- If brand info is sparse, write generic but still specific to their niche."""
+- If brand info is sparse, write generic but still specific to their niche and what was in the post."""
 
 
 def generate_outreach(brand_data: dict, snippets: str = "", api_key: str | None = None) -> dict:

@@ -216,19 +216,17 @@ def _run_linkedin_pipeline(
         website = post.get("website") or None
         logger.info("[STEP 1/4] Scraped | author=%s | followers=%d | text_len=%d", author_name, followers, len(post_text))
 
-        # STEP 2 — Gemini text extraction from post content
-        logger.info("[STEP 2/4] Extracting brand info from post text")
+        # STEP 2 — Gemini extracts email/phone/website/niche from post text
+        logger.info("[STEP 2/3] Extracting brand fields from post text")
         brand = vision_extractor.extract_brand_from_text(post_text)
         brand_name = brand.get("brand_name") or post.get("company") or author_name
         niche = brand.get("niche") or ""
-        # Handle derived from URL slug — always consistent, used for deduplication
-        handle = (
-            author_url.rstrip("/").split("/")[-1]
-            or linkedin_scraper.profile_url_from(linkedin_url) or ""
-        )
-        if handle.startswith("http"):
-            handle = handle.rstrip("/").split("/")[-1]
-        logger.info("[STEP 2/4] Extraction done | brand=%s | handle=%s", brand_name, handle)
+        # Handle always from URL slug — consistent for deduplication
+        handle = author_url.rstrip("/").split("/")[-1] if author_url else ""
+        if not handle or handle.startswith("http"):
+            derived = linkedin_scraper.profile_url_from(linkedin_url)
+            handle = derived.rstrip("/").split("/")[-1] if derived else author_name
+        logger.info("[STEP 2/3] Extracted | brand=%s | handle=%s | email=%s", brand_name, handle, brand.get("email"))
 
         profile = {
             "full_name": author_name,
