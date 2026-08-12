@@ -1,18 +1,22 @@
-"""FR-04 — Instagram profile scraping via Instaloader.
+"""FR-04 — Instagram profile scraping via Apify.
 
-Fetches a public Instagram profile for a given handle and extracts a fixed
-set of fields. Private profiles and invalid handles are handled gracefully
-by raising specific exceptions so the pipeline can continue.
+Fetches a public Instagram profile using the Apify Instagram Profile Scraper
+actor. Same external interface as before — callers see no change.
 """
 
-import random
+import os
 import time
 
-from instaloader import Instaloader, Profile, ProfileNotExistsException
+import requests
 
 from utils.logger import get_logger
 
 logger = get_logger("pipeline.instagram_scraper")
+
+_ACTOR_ID = "apify~instagram-profile-scraper"
+_BASE_URL = "https://api.apify.com/v2"
+_POLL_INTERVAL = 3
+_TIMEOUT = 60
 
 
 class ProfileNotFoundError(Exception):
@@ -23,74 +27,93 @@ class PrivateProfileError(Exception):
     """Raised when the profile exists but is private."""
 
 
-def _delay(min_seconds: int = 2, max_seconds: int = 5) -> None:
-    """Add a random delay to avoid Instagram rate limits (FR-04)."""
-    time.sleep(random.uniform(min_seconds, max_seconds))
+def _api_token() -> str:
+    token = os.getenv("APIFY_API_TOKEN")
+    if not token:
+        from config import CONFIG
+        token = CONFIG.get("apify_api_token")
+    if not token:
+        raise RuntimeError("APIFY_API_TOKEN not set")
+    return token
 
 
-def _loader(username: str | None = None, password: str | None = None) -> Instaloader:
-    loader = Instaloader(
-        quiet=True,
-        download_pictures=False,
-        download_videos=False,
-        download_video_thumbnails=False,
-        compress_json=False,
-        save_metadata=False,
-        post_metadata_txt_pattern="",
-        max_connection_attempts=1,
+def _run_actor(handle: str, token: str) -> dict:
+    """Start the Apify actor and poll until done, return first result."""
+    run_resp = requests.post(
+        f"{_BASE_URL}/acts/{_ACTOR_ID}/runs",
+        params={"token": token},
+        json={"usernames": [handle]},
+        timeout=30,
     )
-    if username and password:
-        loader.login(username, password)
-    return loader
+    run_resp.raise_for_status()
+    run_id = run_resp.json()["data"]["id"]
+    dataset_id = run_resp.json()["data"]["defaultDatasetId"]
+    logger.info("Apify run started | run_id=%s | handle=@%s", run_id, handle)
+
+    # Poll until run finishes
+    deadline = time.time() + _TIMEOUT
+    while time.time() < deadline:
+        time.sleep(_POLL_INTERVAL)
+        status_resp = requests.get(
+            f"{_BASE_URL}/actor-runs/{run_id}",
+            params={"token": token},
+            timeout=15,
+        )
+        status_resp.raise_for_status()
+        status = status_resp.json()["data"]["status"]
+        if status == "SUCCEEDED":
+            break
+        if status in ("FAILED", "ABORTED", "TIMED-OUT"):
+            raise RuntimeError(f"Apify run {status} for @{handle}")
+    else:
+        raise RuntimeError(f"Apify run timed out for @{handle}")
+
+    items_resp = requests.get(
+        f"{_BASE_URL}/datasets/{dataset_id}/items",
+        params={"token": token, "limit": 1},
+        timeout=15,
+    )
+    items_resp.raise_for_status()
+    items = items_resp.json()
+    if not items:
+        raise ProfileNotFoundError(f"No data returned for @{handle}")
+    return items[0]
 
 
-def _public_profile(loader: Instaloader, handle: str):
-    """Return the Profile object, raising the documented exceptions."""
-    if not handle:
-        raise ProfileNotFoundError("Empty Instagram handle")
-    try:
-        return Profile.from_username(loader.context, handle)
-    except ProfileNotExistsException as exc:
-        raise ProfileNotFoundError(f"Handle not found: @{handle}") from exc
-
-
-def get_profile(handle: str, loader: Instaloader | None = None) -> dict:
-    """Fetch and return Instagram profile data for ``handle``.
+def get_profile(handle: str, loader=None) -> dict:
+    """Fetch and return Instagram profile data for ``handle`` via Apify.
 
     Args:
         handle: Instagram username without the ``@`` symbol.
-        loader: optional pre-configured Instaloader (for testing); when None
-            one is created using the configured optional credentials.
+        loader: ignored (kept for interface compatibility with old instaloader code).
 
     Returns:
         A dict with keys: full_name, bio, followers, following, post_count,
         website, is_verified, is_private.
 
     Raises:
-        ProfileNotFoundError: if the handle does not exist.
-        PrivateProfileError: if the profile exists but is private.
+        ProfileNotFoundError: if the handle does not exist or returns no data.
+        PrivateProfileError: if the profile is private.
     """
     handle = handle.strip().lstrip("@")
-    _delay()
+    if not handle:
+        raise ProfileNotFoundError("Empty Instagram handle")
 
-    if loader is None:
-        from config import CONFIG
+    token = _api_token()
+    data = _run_actor(handle, token)
 
-        loader = _loader(CONFIG.get("instagram_username"), CONFIG.get("instagram_password"))
-
-    profile = _public_profile(loader, handle)
-
-    if profile.is_private:
-        logger.warning("Profile is private: @%s", handle)
+    if data.get("private"):
         raise PrivateProfileError(f"Profile is private: @{handle}")
+    if not data.get("username"):
+        raise ProfileNotFoundError(f"Handle not found: @{handle}")
 
     return {
-        "full_name": profile.full_name or "",
-        "bio": profile.biography or "",
-        "followers": int(profile.followers),
-        "following": int(profile.followees),
-        "post_count": int(profile.mediacount),
-        "website": profile.external_url or None,
-        "is_verified": bool(profile.is_verified),
-        "is_private": False,
+        "full_name": data.get("fullName") or "",
+        "bio": data.get("biography") or "",
+        "followers": int(data.get("followersCount") or 0),
+        "following": int(data.get("followsCount") or 0),
+        "post_count": int(data.get("postsCount") or 0),
+        "website": data.get("externalUrl") or None,
+        "is_verified": bool(data.get("verified")),
+        "is_private": bool(data.get("private")),
     }

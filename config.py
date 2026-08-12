@@ -102,6 +102,7 @@ def load_config() -> dict:
         "google_creds_dict": _google_creds_dict(),
         "instagram_username": os.getenv("INSTAGRAM_USERNAME", "") or None,
         "instagram_password": os.getenv("INSTAGRAM_PASSWORD", "") or None,
+        "apify_api_token": os.getenv("APIFY_API_TOKEN", "") or None,
         "log_level": os.getenv("LOG_LEVEL", "INFO").upper(),
         "max_retries": _max_retries(),
         "port": _int_env("PORT", _OPTIONAL_DEFAULTS["PORT"]),
