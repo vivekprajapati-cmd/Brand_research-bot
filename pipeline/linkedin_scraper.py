@@ -18,8 +18,8 @@ from utils.logger import get_logger
 logger = get_logger("pipeline.linkedin_scraper")
 
 # Verify these actor IDs in your Apify store if they stop working
-_POST_ACTOR = "curious_coder~linkedin-post-scraper"
-_PROFILE_ACTOR = "bebity~linkedin-profile-scraper"
+_POST_ACTOR = "curious_coder~linkedin-post-search-scraper"
+_PROFILE_ACTOR = "curious_coder~linkedin-profile-scraper"
 _BASE_URL = "https://api.apify.com/v2"
 _POLL_INTERVAL = 3
 _TIMEOUT = 90
