@@ -18,8 +18,8 @@ from utils.logger import get_logger
 logger = get_logger("pipeline.linkedin_scraper")
 
 # Verify these actor IDs in your Apify store if they stop working
-_POST_ACTOR = "curious_coder~linkedin-post-search-scraper"
-_PROFILE_ACTOR = "curious_coder~linkedin-profile-scraper"
+_POST_ACTOR = "apify~playwright-scraper"
+_PROFILE_ACTOR = "apify~playwright-scraper"
 _BASE_URL = "https://api.apify.com/v2"
 _POLL_INTERVAL = 3
 _TIMEOUT = 90
@@ -78,10 +78,38 @@ def _run_actor(actor_id: str, input_data: dict, token: str) -> list:
     return items_resp.json()
 
 
+_POST_PAGE_FUNCTION = """
+async function pageFunction(context) {
+    const { page } = context;
+    await page.waitForTimeout(3000);
+    const text = await page.evaluate(() => {
+        const post = document.querySelector('.feed-shared-text') ||
+                     document.querySelector('.attributed-text-segment-list__content') ||
+                     document.querySelector('[data-test-id="main-feed-activity-card__commentary"]');
+        const author = document.querySelector('.feed-shared-actor__name') ||
+                       document.querySelector('.update-components-actor__name');
+        const company = document.querySelector('.feed-shared-actor__sub-description') ||
+                        document.querySelector('.update-components-actor__meta');
+        return {
+            text: post ? post.innerText.trim() : document.title,
+            authorName: author ? author.innerText.trim() : '',
+            company: company ? company.innerText.trim() : '',
+        };
+    });
+    return text;
+}
+"""
+
+
 def scrape_post(url: str) -> dict:
-    """Scrape a LinkedIn post URL. Returns structured post data."""
+    """Scrape a LinkedIn post URL via Apify Playwright. Returns structured post data."""
     token = _api_token()
-    items = _run_actor(_POST_ACTOR, {"urls": [url]}, token)
+    input_data = {
+        "startUrls": [{"url": url}],
+        "pageFunction": _POST_PAGE_FUNCTION,
+        "proxyConfiguration": {"useApifyProxy": True},
+    }
+    items = _run_actor(_POST_ACTOR, input_data, token)
     if not items:
         raise LinkedInScrapeError(f"No post data returned for {url}")
     return items[0]
@@ -91,7 +119,12 @@ def scrape_profile(profile_url: str) -> dict:
     """Scrape a LinkedIn profile/company URL. Returns {} on failure."""
     token = _api_token()
     try:
-        items = _run_actor(_PROFILE_ACTOR, {"profileUrls": [profile_url]}, token)
+        input_data = {
+            "startUrls": [{"url": profile_url}],
+            "pageFunction": _POST_PAGE_FUNCTION,
+            "proxyConfiguration": {"useApifyProxy": True},
+        }
+        items = _run_actor(_PROFILE_ACTOR, input_data, token)
         return items[0] if items else {}
     except Exception as exc:
         logger.warning("LinkedIn profile scrape failed: %s", exc)
