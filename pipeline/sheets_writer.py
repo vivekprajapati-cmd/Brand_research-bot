@@ -30,10 +30,13 @@ _COLUMNS = [
     "Phone",
     "Bio",
     "Is Verified",
-    "Research Notes",
+    "LinkedIn Outreach Msg",
+    "Outreach Email",
     "Source Post URL",
     "Status",
 ]
+
+_LAST_COL = "R"  # update if columns change
 
 _DEFAULT_STATUS = "To Contact"
 
@@ -67,7 +70,8 @@ def _row_from_brand(brand_data: dict) -> list:
         brand_data.get("phone") or "",
         profile.get("bio") or "",
         "TRUE" if profile.get("is_verified") else "FALSE",
-        brand_data.get("research_notes") or "",
+        brand_data.get("linkedin_msg") or "",
+        brand_data.get("outreach_email") or "",
         brand_data.get("source_post_url") or "",
         brand_data.get("status") or _DEFAULT_STATUS,
     ]
@@ -155,7 +159,7 @@ def write_brand(
     existing = _find_handle_row(sheet, handle)
     try:
         if existing is not None:
-            sheet.update(f"A{existing}:Q{existing}", [row])
+            sheet.update(f"A{existing}:{_LAST_COL}{existing}", [row])
             action = "updated"
             logger.info("Updated row %d for @%s", existing, handle)
         else:

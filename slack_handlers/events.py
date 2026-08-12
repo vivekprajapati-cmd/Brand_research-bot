@@ -15,7 +15,7 @@ from slack_bolt import App
 _INSTAGRAM_URL_RE = re.compile(r"https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[A-Za-z0-9_-]+")
 _LINKEDIN_URL_RE = re.compile(r"https?://(?:www\.)?linkedin\.com/(?:posts|company|in|feed/update)/[A-Za-z0-9_%:-]+")
 
-from pipeline import downloader, instagram_scraper, linkedin_scraper, sheets_writer, vision_extractor, web_researcher
+from pipeline import downloader, instagram_scraper, linkedin_scraper, outreach_writer, sheets_writer, vision_extractor, web_researcher
 from pipeline.instagram_scraper import PrivateProfileError, ProfileNotFoundError
 from pipeline.linkedin_scraper import LinkedInScrapeError
 from pipeline.vision_extractor import ExtractionError
@@ -140,19 +140,22 @@ def _run_pipeline(
         else:
             logger.warning("[STEP 3/5] No handle extracted — skipping Instagram scrape")
 
-        # STEP 4 — Web research
-        logger.info("[STEP 4/5] Starting web research | brand=%s | handle=@%s", brand.get("brand_name"), handle)
-        research = web_researcher.research_brand(brand.get("brand_name") or "", handle)
-        logger.info(
-            "[STEP 4/5] Research complete | sources=%d | notes_length=%d",
-            len(research.get("sources", [])), len(research.get("research_notes", "")),
-        )
-
-        # STEP 5 — Write to Google Sheets
+        # STEP 4 — Generate outreach + write to Sheets
         status = "Review Needed" if (brand.get("confidence") or 0) < _CONFIDENCE_THRESHOLD else "To Contact"
-        logger.info("[STEP 5/5] Writing to Google Sheets | status=%s", status)
         post_data = brand.get("post_content") or ""
         platform = "Instagram" if instagram_url else "Screenshot"
+
+        merged = {
+            "brand_name": brand.get("brand_name"),
+            "handle": handle,
+            "niche": brand.get("niche"),
+            "post_data": post_data,
+            "profile": profile,
+        }
+        logger.info("[STEP 4/4] Searching web + generating outreach | brand=%s", brand.get("brand_name"))
+        snippets = web_researcher.search_brand(brand.get("brand_name") or "")
+        outreach = outreach_writer.generate_outreach(merged, snippets)
+
         brand_data = {
             "platform": platform,
             "brand_name": brand.get("brand_name"),
@@ -163,15 +166,15 @@ def _run_pipeline(
             "phone": brand.get("phone"),
             "website": brand.get("website"),
             "profile": profile,
-            "research_notes": research.get("research_notes", ""),
-            "sources": research.get("sources", []),
+            "linkedin_msg": outreach.get("linkedin_msg", ""),
+            "outreach_email": outreach.get("email", ""),
             "source_post_url": _permalink_for(client, channel, message_ts),
             "status": status,
         }
 
         result = sheets_writer.write_brand(brand_data)
         logger.info(
-            "[STEP 5/5] Sheet write complete | action=%s | row=%s | handle=@%s",
+            "[STEP 4/4] Sheet write complete | action=%s | row=%s | handle=@%s",
             result["action"], result["row_num"], handle,
         )
         logger.info("[PIPELINE] DONE | handle=@%s | row=%s", handle, result["row_num"])
@@ -203,58 +206,65 @@ def _run_linkedin_pipeline(
     try:
         _post_thread(client, channel, message_ts, "Processing LinkedIn post...")
 
-        # STEP 1 — Scrape LinkedIn post + author info via harvestapi (one call)
-        logger.info("[STEP 1/3] Scraping LinkedIn post | url=%s", linkedin_url)
+        # STEP 1 — Scrape LinkedIn post + author info via harvestapi
+        logger.info("[STEP 1/4] Scraping LinkedIn post | url=%s", linkedin_url)
         post = linkedin_scraper.scrape_post(linkedin_url)
         author_name = post.get("authorName") or ""
-        company_name = post.get("company") or author_name
         post_text = post.get("text") or ""
         author_url = post.get("authorUrl") or ""
         followers = int(post.get("followersCount") or 0)
         website = post.get("website") or None
-        logger.info("[STEP 1/3] Scraped | author=%s | followers=%d | text_len=%d", author_name, followers, len(post_text))
+        logger.info("[STEP 1/4] Scraped | author=%s | followers=%d | text_len=%d", author_name, followers, len(post_text))
+
+        # STEP 2 — Gemini text extraction from post content
+        logger.info("[STEP 2/4] Extracting brand info from post text")
+        brand = vision_extractor.extract_brand_from_text(post_text)
+        brand_name = brand.get("brand_name") or post.get("company") or author_name
+        handle = (brand.get("handle") or "").lstrip("@") or (author_url.rstrip("/").split("/")[-1] if author_url else brand_name)
+        niche = brand.get("niche") or ""
+        logger.info("[STEP 2/4] Extraction done | brand=%s | handle=%s | confidence=%s", brand_name, handle, brand.get("confidence"))
 
         profile = {
             "full_name": author_name,
-            "bio": company_name,
+            "bio": post.get("company") or "",
             "followers": followers,
             "following": 0,
             "post_count": 0,
-            "website": website,
+            "website": website or brand.get("website"),
             "is_verified": False,
             "is_private": False,
         }
 
-        # STEP 2 — Web research
-        logger.info("[STEP 2/3] Starting web research | brand=%s", company_name)
-        research = web_researcher.research_brand(company_name, author_url)
-        logger.info("[STEP 2/3] Research complete | sources=%d", len(research.get("sources", [])))
+        # STEP 3 — Generate outreach
+        logger.info("[STEP 3/3] Searching web + generating outreach | brand=%s", brand_name)
+        snippets = web_researcher.search_brand(brand_name)
+        merged = {"brand_name": brand_name, "handle": handle, "niche": niche, "post_data": post_text, "profile": profile}
+        outreach = outreach_writer.generate_outreach(merged, snippets)
+        logger.info("[STEP 3/3] Outreach done | linkedin_msg_len=%d", len(outreach.get("linkedin_msg", "")))
 
-        # STEP 3 — Write to Sheets
-        handle = author_url.rstrip("/").split("/")[-1] if author_url else company_name
+        # STEP 3 cont — Write to Sheets
         brand_data = {
             "platform": "LinkedIn",
-            "brand_name": company_name,
+            "brand_name": brand_name,
             "handle": handle,
-            "niche": "",
+            "niche": niche,
             "post_data": post_text,
-            "email": None,
-            "phone": None,
-            "website": website,
+            "email": brand.get("email"),
+            "phone": brand.get("phone"),
+            "website": website or brand.get("website"),
             "profile": profile,
-            "research_notes": research.get("research_notes", ""),
-            "sources": research.get("sources", []),
+            "linkedin_msg": outreach.get("linkedin_msg", ""),
+            "outreach_email": outreach.get("email", ""),
             "source_post_url": linkedin_url,
             "status": "To Contact",
         }
-        logger.info("[STEP 3/3] Writing to Google Sheets")
         result = sheets_writer.write_brand(brand_data)
-        logger.info("[PIPELINE] DONE | platform=linkedin | brand=%s | row=%s", company_name, result["row_num"])
+        logger.info("[PIPELINE] DONE | platform=linkedin | brand=%s | row=%s", brand_name, result["row_num"])
 
         if result["action"] == "updated":
-            msg = f"Already tracked — updated row {result['row_num']} for {company_name} (LinkedIn)."
+            msg = f"Already tracked — updated row {result['row_num']} for {brand_name} (LinkedIn)."
         else:
-            msg = f"Done — added to Sheet (row {result['row_num']}) for {company_name} (LinkedIn)."
+            msg = f"Done — added to Sheet (row {result['row_num']}) for {brand_name} (LinkedIn)."
         _post_thread(client, channel, message_ts, msg)
 
     except Exception as exc:

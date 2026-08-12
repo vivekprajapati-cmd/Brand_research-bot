@@ -28,6 +28,16 @@ _EXTRACTION_PROMPT = (
     "handle is correct). If a field is not visible use null."
 )
 
+_TEXT_EXTRACTION_PROMPT = (
+    "Analyze this social media brand post text scraped from LinkedIn. "
+    "Extract the following details and return ONLY valid JSON (no markdown, no extra text) "
+    "with exactly these keys: brand_name (str), handle (str, LinkedIn username or company slug WITHOUT "
+    "the @ symbol), niche (str, product/service category), tagline (str or null), "
+    "email (str or null), phone (str or null), website (str or null), "
+    "confidence (float 0-1 indicating how confident you are this is a real brand). "
+    "If a field is not determinable use null.\n\nPost text:\n"
+)
+
 _RETRYABLE_EXCEPTIONS = (RuntimeError, ConnectionError, TimeoutError)
 
 
@@ -122,6 +132,32 @@ def _confidence(value) -> float:
         return max(0.0, min(1.0, conf))
     except (TypeError, ValueError):
         return 0.0
+
+
+def extract_brand_from_text(post_text: str, api_key: str | None = None) -> dict:
+    """Extract brand info from scraped post text (LinkedIn URL flow).
+
+    Returns same shape as extract_brand but with confidence typically lower
+    since we're working from text, not a branded image.
+    """
+    if api_key is None:
+        from config import CONFIG
+        api_key = CONFIG["gemini_api_key"]
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite",
+        contents=[types.Part.from_text(text=_TEXT_EXTRACTION_PROMPT + post_text[:2000])],
+    )
+    raw_text = response.text or ""
+    try:
+        return _parse_response(raw_text)
+    except Exception:
+        return {
+            "brand_name": None, "handle": None, "niche": None,
+            "tagline": None, "post_content": post_text, "email": None,
+            "phone": None, "website": None, "confidence": 0.0,
+        }
 
 
 def extract_brand(image_path: str, api_key: str | None = None, model=None) -> dict:

@@ -86,6 +86,15 @@ def _synthesise(api_key: str, brand_name: str, handle: str, snippets: str) -> st
     return (response.text or "").strip()
 
 
+def search_brand(brand_name: str, max_results: int = 5) -> str:
+    """Run DDG searches and return raw formatted snippets. No Gemini call."""
+    try:
+        results = collect_search_results(brand_name, max_results)
+    except ResearchError:
+        return ""
+    return _format_snippets(results, max_per_result=max_results)
+
+
 def research_brand(
     brand_name: str,
     handle: str,
