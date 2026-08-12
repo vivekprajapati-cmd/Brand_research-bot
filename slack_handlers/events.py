@@ -220,9 +220,15 @@ def _run_linkedin_pipeline(
         logger.info("[STEP 2/4] Extracting brand info from post text")
         brand = vision_extractor.extract_brand_from_text(post_text)
         brand_name = brand.get("brand_name") or post.get("company") or author_name
-        handle = (brand.get("handle") or "").lstrip("@") or (author_url.rstrip("/").split("/")[-1] if author_url else brand_name)
         niche = brand.get("niche") or ""
-        logger.info("[STEP 2/4] Extraction done | brand=%s | handle=%s | confidence=%s", brand_name, handle, brand.get("confidence"))
+        # Handle derived from URL slug — always consistent, used for deduplication
+        handle = (
+            author_url.rstrip("/").split("/")[-1]
+            or linkedin_scraper.profile_url_from(linkedin_url) or ""
+        )
+        if handle.startswith("http"):
+            handle = handle.rstrip("/").split("/")[-1]
+        logger.info("[STEP 2/4] Extraction done | brand=%s | handle=%s", brand_name, handle)
 
         profile = {
             "full_name": author_name,

@@ -86,20 +86,36 @@ def _client(creds_dict: dict) -> gspread.Client:
     return gspread.authorize(creds)
 
 
-def _find_handle_row(sheet, handle: str) -> int | None:
-    """Return the 1-based row index of an existing handle, or None."""
-    handle = handle.lstrip("@").lower()
+def _find_existing_row(sheet, handle: str, source_url: str) -> int | None:
+    """Return the 1-based row index of a duplicate, or None.
+
+    Matches on source post URL first (exact same post URL = same event),
+    then falls back to handle (same brand, different post).
+    """
+    handle_norm = handle.lstrip("@").lower()
+    source_url_norm = (source_url or "").strip().rstrip("/")
     try:
         values = sheet.get_all_values()
     except Exception as exc:
         raise SheetWriteError(f"Failed to read sheet: {exc}") from exc
+
+    # col indices (0-based): Handle=3, Source Post URL=16
+    url_col = _COLUMNS.index("Source Post URL")
+    handle_col = _COLUMNS.index("Handle")
+
+    url_match = None
+    handle_match = None
     for idx, row in enumerate(values, start=1):
         if idx == 1:
-            continue  # skip header
-        existing = (row[3] if len(row) > 3 else "").lstrip("@").lower()
-        if existing == handle:
-            return idx
-    return None
+            continue
+        row_url = (row[url_col] if len(row) > url_col else "").strip().rstrip("/")
+        row_handle = (row[handle_col] if len(row) > handle_col else "").lstrip("@").lower()
+        if source_url_norm and row_url == source_url_norm:
+            url_match = idx
+            break  # exact post URL match wins immediately
+        if handle_norm and row_handle == handle_norm and handle_match is None:
+            handle_match = idx
+    return url_match or handle_match
 
 
 def write_brand(
@@ -154,9 +170,10 @@ def write_brand(
         logger.info("Updated worksheet headers to match current schema")
 
     handle = brand_data.get("handle") or ""
+    source_url = brand_data.get("source_post_url") or ""
     row = _row_from_brand(brand_data)
 
-    existing = _find_handle_row(sheet, handle)
+    existing = _find_existing_row(sheet, handle, source_url)
     try:
         if existing is not None:
             sheet.update(f"A{existing}:{_LAST_COL}{existing}", [row])

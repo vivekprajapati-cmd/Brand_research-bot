@@ -83,7 +83,7 @@ _PROFILE_PATTERNS = [
 ]
 
 
-def _profile_url_from(url: str) -> str | None:
+def profile_url_from(url: str) -> str | None:
     """Derive a LinkedIn profile URL from any LinkedIn URL we might receive."""
     for pattern, template in _PROFILE_PATTERNS:
         m = pattern.search(url)
@@ -137,7 +137,7 @@ def scrape_post(url: str) -> dict:
     harvestapi~linkedin-profile-posts (no login required).
     """
     token = _api_token()
-    profile_url = _profile_url_from(url)
+    profile_url = profile_url_from(url)
     if not profile_url:
         raise LinkedInScrapeError(
             f"Cannot derive a LinkedIn profile URL from: {url}. "
