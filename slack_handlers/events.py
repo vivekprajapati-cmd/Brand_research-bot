@@ -136,12 +136,11 @@ def _run_pipeline(
             result["action"], result["row_num"], handle,
         )
         logger.info("[PIPELINE] DONE | handle=@%s | row=%s", handle, result["row_num"])
-        _post_thread(
-            client,
-            channel,
-            message_ts,
-            f"Done - check the Sheet (row {result['row_num']}, {result['action']}).",
-        )
+        if result["action"] == "updated":
+            msg = f"Already tracked — updated row {result['row_num']} for @{handle}."
+        else:
+            msg = f"Done — added to Sheet (row {result['row_num']}) for @{handle}."
+        _post_thread(client, channel, message_ts, msg)
     except Exception as exc:  # FR-08: never crash silently
         logger.error(
             "Pipeline failed: %s\n%s",
