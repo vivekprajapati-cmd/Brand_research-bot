@@ -119,7 +119,8 @@ def _parse_post(item: dict) -> dict:
     )
     text = (
         item.get("text") or item.get("content") or item.get("commentary")
-        or item.get("postContent") or item.get("description") or item.get("body") or ""
+        or item.get("postContent") or item.get("fullText") or item.get("rawText")
+        or item.get("description") or item.get("body") or item.get("article") or ""
     )
     website = author.get("website") or author.get("url") or ""
 
@@ -152,9 +153,12 @@ def scrape_post(url: str) -> dict:
     if not items:
         raise LinkedInScrapeError(f"No posts returned for {profile_url}")
 
-    logger.info("Harvestapi raw item keys: %s", list(items[0].keys()))
-    logger.info("Harvestapi raw text field: %r", (items[0].get("text") or "")[:300])
-    return _parse_post(items[0])
+    raw = items[0]
+    logger.info("Harvestapi raw item keys: %s", list(raw.keys()))
+    for k, v in raw.items():
+        if isinstance(v, str):
+            logger.info("  [%s] = %r", k, v[:200])
+    return _parse_post(raw)
 
 
 def scrape_profile(profile_url: str) -> dict:
