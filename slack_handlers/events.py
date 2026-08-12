@@ -214,12 +214,17 @@ def _run_linkedin_pipeline(
         author_url = post.get("authorUrl") or ""
         logger.info("[STEP 1/3] Scraped | author=%s | text_len=%d", author_name, len(post_text))
 
-        # STEP 2 — Gemini extracts email/phone/website/niche from post text
-        logger.info("[STEP 2/3] Extracting brand fields from post text")
+        # STEP 2 — Scrape author profile for followers/bio + Gemini for email/niche
+        logger.info("[STEP 2/3] Scraping author profile + extracting brand fields")
+        raw_profile = {}
+        if author_url:
+            raw_profile = linkedin_scraper.scrape_profile(author_url)
+            logger.info("[STEP 2/3] Profile | followers=%s | headline=%s",
+                        raw_profile.get("followersCount"), raw_profile.get("headline"))
+
         brand = vision_extractor.extract_brand_from_text(post_text)
         brand_name = brand.get("brand_name") or post.get("company") or author_name
         niche = brand.get("niche") or ""
-        # Handle from author URL slug — consistent for deduplication
         handle = author_url.rstrip("/").split("/")[-1] if author_url else ""
         if not handle or handle.startswith("http"):
             derived = linkedin_scraper.profile_url_from(linkedin_url)
@@ -227,12 +232,12 @@ def _run_linkedin_pipeline(
         logger.info("[STEP 2/3] Extracted | brand=%s | handle=%s | email=%s", brand_name, handle, brand.get("email"))
 
         profile = {
-            "full_name": author_name,
-            "bio": post.get("company") or "",
-            "followers": 0,
+            "full_name": raw_profile.get("fullName") or author_name,
+            "bio": raw_profile.get("headline") or post.get("company") or "",
+            "followers": int(raw_profile.get("followersCount") or 0),
             "following": 0,
             "post_count": 0,
-            "website": brand.get("website"),
+            "website": raw_profile.get("website") or brand.get("website"),
             "is_verified": False,
             "is_private": False,
         }
@@ -253,7 +258,7 @@ def _run_linkedin_pipeline(
             "post_data": post_text,
             "email": brand.get("email"),
             "phone": brand.get("phone"),
-            "website": website or brand.get("website"),
+            "website": profile.get("website") or brand.get("website"),
             "profile": profile,
             "linkedin_msg": outreach.get("linkedin_msg", ""),
             "outreach_email": outreach.get("email", ""),
