@@ -17,8 +17,9 @@ logger = get_logger("pipeline.sheets_writer")
 
 _COLUMNS = [
     "Timestamp",
+    "Platform",
     "Brand Name",
-    "Instagram Handle",
+    "Handle",
     "Niche / Category",
     "Post Data",
     "Followers",
@@ -53,6 +54,7 @@ def _row_from_brand(brand_data: dict) -> list:
     profile = brand_data.get("profile", {}) or {}
     return [
         datetime.now(timezone.utc).isoformat(),
+        brand_data.get("platform") or "Instagram",
         brand_data.get("brand_name") or "",
         (brand_data.get("handle") or "").lstrip("@"),
         brand_data.get("niche") or "",
@@ -90,7 +92,7 @@ def _find_handle_row(sheet, handle: str) -> int | None:
     for idx, row in enumerate(values, start=1):
         if idx == 1:
             continue  # skip header
-        existing = (row[2] if len(row) > 2 else "").lstrip("@").lower()
+        existing = (row[3] if len(row) > 3 else "").lstrip("@").lower()
         if existing == handle:
             return idx
     return None
@@ -147,7 +149,7 @@ def write_brand(
     existing = _find_handle_row(sheet, handle)
     try:
         if existing is not None:
-            sheet.update(f"A{existing}:P{existing}", [row])
+            sheet.update(f"A{existing}:Q{existing}", [row])
             action = "updated"
             logger.info("Updated row %d for @%s", existing, handle)
         else:

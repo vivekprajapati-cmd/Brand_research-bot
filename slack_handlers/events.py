@@ -13,9 +13,11 @@ from concurrent.futures import ThreadPoolExecutor
 from slack_bolt import App
 
 _INSTAGRAM_URL_RE = re.compile(r"https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[A-Za-z0-9_-]+")
+_LINKEDIN_URL_RE = re.compile(r"https?://(?:www\.)?linkedin\.com/(?:posts|company|in|feed/update)/[A-Za-z0-9_%:-]+")
 
-from pipeline import downloader, instagram_scraper, sheets_writer, vision_extractor, web_researcher
+from pipeline import downloader, instagram_scraper, linkedin_scraper, sheets_writer, vision_extractor, web_researcher
 from pipeline.instagram_scraper import PrivateProfileError, ProfileNotFoundError
+from pipeline.linkedin_scraper import LinkedInScrapeError
 from pipeline.vision_extractor import ExtractionError
 from utils.logger import get_logger
 
@@ -115,7 +117,9 @@ def _run_pipeline(
         status = "Review Needed" if (brand.get("confidence") or 0) < _CONFIDENCE_THRESHOLD else "To Contact"
         logger.info("[STEP 5/5] Writing to Google Sheets | status=%s", status)
         post_data = brand.get("post_content") or ""
+        platform = "Instagram" if instagram_url else "Screenshot"
         brand_data = {
+            "platform": platform,
             "brand_name": brand.get("brand_name"),
             "handle": handle,
             "niche": brand.get("niche"),
@@ -154,6 +158,81 @@ def _run_pipeline(
     finally:
         if image_path:
             downloader.cleanup(image_path)
+
+
+def _run_linkedin_pipeline(
+    client, channel: str, message_ts: str, username: str, linkedin_url: str,
+) -> None:
+    """Execute research pipeline for a LinkedIn post URL."""
+    logger.info("[PIPELINE] START | platform=linkedin | url=%s | channel=%s | user=%s", linkedin_url, channel, username)
+    try:
+        _post_thread(client, channel, message_ts, "Processing LinkedIn post...")
+
+        # STEP 1 — Scrape LinkedIn post via Apify
+        logger.info("[STEP 1/4] Scraping LinkedIn post | url=%s", linkedin_url)
+        post = linkedin_scraper.scrape_post(linkedin_url)
+        author_name = post.get("authorName") or post.get("author") or ""
+        company_name = post.get("companyName") or post.get("company") or author_name
+        post_text = post.get("text") or post.get("content") or ""
+        author_url = post.get("authorUrl") or post.get("profileUrl") or ""
+        logger.info("[STEP 1/4] Post scraped | author=%s | text_length=%d", author_name, len(post_text))
+
+        # STEP 2 — Scrape LinkedIn profile via Apify
+        profile = {}
+        if author_url:
+            logger.info("[STEP 2/4] Scraping LinkedIn profile | url=%s", author_url)
+            raw = linkedin_scraper.scrape_profile(author_url)
+            if raw:
+                profile = {
+                    "full_name": raw.get("fullName") or author_name,
+                    "bio": raw.get("about") or raw.get("headline") or "",
+                    "followers": int(raw.get("followersCount") or 0),
+                    "following": 0,
+                    "post_count": 0,
+                    "website": raw.get("website") or None,
+                    "is_verified": False,
+                    "is_private": False,
+                }
+                logger.info("[STEP 2/4] Profile scraped | followers=%s", profile.get("followers"))
+
+        # STEP 3 — Web research
+        logger.info("[STEP 3/4] Starting web research | brand=%s", company_name)
+        research = web_researcher.research_brand(company_name, author_url)
+        logger.info("[STEP 3/4] Research complete | sources=%d", len(research.get("sources", [])))
+
+        # STEP 4 — Write to Sheets
+        handle = author_url.rstrip("/").split("/")[-1] if author_url else company_name
+        brand_data = {
+            "platform": "LinkedIn",
+            "brand_name": company_name,
+            "handle": handle,
+            "niche": post.get("industry") or "",
+            "post_data": post_text,
+            "email": None,
+            "phone": None,
+            "website": profile.get("website"),
+            "profile": profile,
+            "research_notes": research.get("research_notes", ""),
+            "sources": research.get("sources", []),
+            "source_post_url": linkedin_url,
+            "status": "To Contact",
+        }
+        logger.info("[STEP 4/4] Writing to Google Sheets")
+        result = sheets_writer.write_brand(brand_data)
+        logger.info("[PIPELINE] DONE | platform=linkedin | brand=%s | row=%s", company_name, result["row_num"])
+
+        if result["action"] == "updated":
+            msg = f"Already tracked — updated row {result['row_num']} for {company_name} (LinkedIn)."
+        else:
+            msg = f"Done — added to Sheet (row {result['row_num']}) for {company_name} (LinkedIn)."
+        _post_thread(client, channel, message_ts, msg)
+
+    except Exception as exc:
+        logger.error("LinkedIn pipeline failed: %s\n%s", exc, traceback.format_exc())
+        try:
+            _post_thread(client, channel, message_ts, f"Something went wrong: {exc}")
+        except Exception as post_exc:
+            logger.error("Failed to post error to Slack: %s", post_exc)
 
 
 def _handle_file_shared(client, event: dict, body: dict, logger_) -> None:
@@ -199,14 +278,21 @@ def register_handlers(app: App) -> None:
             return
         message_ts = event.get("ts") or ""
 
-        # Instagram URL trigger
         text = event.get("text") or ""
-        urls = _INSTAGRAM_URL_RE.findall(text)
-        if urls:
-            logger.info("[TRIGGER] Instagram URL(s) detected | count=%d | user=%s | channel=%s", len(urls), user, channel)
-        for url in urls:
-            logger.info("[TRIGGER] Dispatching pipeline for URL | url=%s", url)
+
+        # Instagram URL trigger
+        ig_urls = _INSTAGRAM_URL_RE.findall(text)
+        if ig_urls:
+            logger.info("[TRIGGER] Instagram URL(s) detected | count=%d | user=%s", len(ig_urls), user)
+        for url in ig_urls:
             _executor.submit(_run_pipeline, client, channel, {}, message_ts, user, url)
+
+        # LinkedIn URL trigger
+        li_urls = _LINKEDIN_URL_RE.findall(text)
+        if li_urls:
+            logger.info("[TRIGGER] LinkedIn URL(s) detected | count=%d | user=%s", len(li_urls), user)
+        for url in li_urls:
+            _executor.submit(_run_linkedin_pipeline, client, channel, message_ts, user, url)
 
         # Screenshot / image file trigger (existing behaviour)
         files = event.get("files") or []

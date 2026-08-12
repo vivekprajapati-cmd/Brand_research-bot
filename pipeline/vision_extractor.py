@@ -16,9 +16,9 @@ from utils.retry import retry
 logger = get_logger("pipeline.vision_extractor")
 
 _EXTRACTION_PROMPT = (
-    "Analyze this Instagram brand post image. Extract the following details "
-    "and return ONLY valid JSON (no markdown, no extra text) with exactly "
-    "these keys: brand_name (str), handle (str, Instagram username WITHOUT "
+    "Analyze this social media brand post image (Instagram or LinkedIn screenshot). "
+    "Extract the following details and return ONLY valid JSON (no markdown, no extra text) "
+    "with exactly these keys: brand_name (str), handle (str, social media username WITHOUT "
     "the @ symbol), niche (str, product/service category), tagline (str, "
     "short brand tagline if visible), email (str or null), phone (str or "
     "null), website (str or null), post_content (str, ALL visible text from "
