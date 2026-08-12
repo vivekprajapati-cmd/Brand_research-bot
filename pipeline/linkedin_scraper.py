@@ -92,37 +92,48 @@ def profile_url_from(url: str) -> str | None:
     return None
 
 
+def _extract_activity_id(url: str) -> str | None:
+    """Pull the numeric activity ID out of any LinkedIn post URL."""
+    # matches: _rishsays-share-7492546557058125826-qhwg  OR  activity-7493195755999051776-iWyY
+    m = re.search(r'[-_](\d{15,})', url)
+    return m.group(1) if m else None
+
+
 def _parse_post(item: dict) -> dict:
     """Normalise one harvestapi result item into our internal shape."""
     author = item.get("author") or {}
-    # harvestapi nests author data; field names vary across actor versions
+    if isinstance(author, str):
+        author = {}
+
     author_name = (
         author.get("name") or author.get("fullName")
         or item.get("authorName") or item.get("actorName") or ""
     )
     author_url = (
-        author.get("url") or author.get("profileUrl")
+        author.get("url") or author.get("profileUrl") or author.get("linkedinUrl")
         or item.get("authorUrl") or item.get("actorUrl") or ""
     )
     followers = (
         author.get("followersCount") or author.get("followers")
+        or author.get("followerCount")
         or item.get("followersCount") or 0
     )
     try:
-        followers = int(followers)
+        followers = int(str(followers).replace(",", ""))
     except (TypeError, ValueError):
         followers = 0
 
     company = (
-        author.get("headline") or author.get("subtitle")
+        author.get("headline") or author.get("subtitle") or author.get("tagline")
         or item.get("authorHeadline") or item.get("actorSubLine") or author_name
     )
+    # harvestapi truncates `content` at LinkedIn's "see more" fold — known limitation
     text = (
         item.get("text") or item.get("content") or item.get("commentary")
         or item.get("postContent") or item.get("fullText") or item.get("rawText")
         or item.get("description") or item.get("body") or item.get("article") or ""
     )
-    website = author.get("website") or author.get("url") or ""
+    website = author.get("website") or ""
 
     return {
         "authorName": author_name,
@@ -131,6 +142,7 @@ def _parse_post(item: dict) -> dict:
         "text": text,
         "followersCount": followers,
         "website": website,
+        "_id": item.get("id") or item.get("entityId") or "",
     }
 
 
@@ -149,16 +161,30 @@ def scrape_post(url: str) -> dict:
         )
 
     logger.info("Scraping LinkedIn profile posts | profile_url=%s", profile_url)
-    items = _run_actor({"targetUrls": [profile_url], "maxPosts": 3}, token)
+    items = _run_actor({"targetUrls": [profile_url], "maxPosts": 10}, token)
     if not items:
         raise LinkedInScrapeError(f"No posts returned for {profile_url}")
 
-    raw = items[0]
-    logger.info("Harvestapi raw item keys: %s", list(raw.keys()))
-    for k, v in raw.items():
-        if isinstance(v, str):
-            logger.info("  [%s] = %r", k, v[:200])
-    return _parse_post(raw)
+    # Try to match the specific post the user sent by activity ID
+    target_id = _extract_activity_id(url)
+    matched = None
+    if target_id:
+        for item in items:
+            item_id = str(item.get("id") or item.get("entityId") or "")
+            item_url = item.get("linkedinUrl") or item.get("shareLinkedinUrl") or ""
+            if target_id in item_id or target_id in item_url:
+                matched = item
+                logger.info("Matched post by activity ID %s", target_id)
+                break
+    if matched is None:
+        matched = items[0]
+        logger.info("No activity ID match — using most recent post")
+
+    logger.info("Harvestapi raw item keys: %s", list(matched.keys()))
+    author_obj = matched.get("author") or {}
+    if isinstance(author_obj, dict):
+        logger.info("  author keys: %s", list(author_obj.keys()))
+    return _parse_post(matched)
 
 
 def scrape_profile(profile_url: str) -> dict:
