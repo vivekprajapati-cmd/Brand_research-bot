@@ -143,6 +143,12 @@ def write_brand(
         sheet.append_row(_COLUMNS)
         logger.info("Created worksheet %r with headers", tab_name)
 
+    # Auto-fix headers if stale (e.g. after adding/renaming columns)
+    existing_headers = sheet.row_values(1) if sheet.row_count > 0 else []
+    if existing_headers != _COLUMNS:
+        sheet.update("A1", [_COLUMNS])
+        logger.info("Updated worksheet headers to match current schema")
+
     handle = brand_data.get("handle") or ""
     row = _row_from_brand(brand_data)
 

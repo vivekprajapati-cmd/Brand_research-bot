@@ -207,7 +207,7 @@ def _run_linkedin_pipeline(
         author_name = post.get("authorName") or post.get("author") or ""
         company_name = post.get("companyName") or post.get("company") or author_name
         post_text = post.get("text") or post.get("content") or ""
-        author_url = post.get("authorUrl") or post.get("profileUrl") or ""
+        author_url = post.get("authorUrl") or post.get("profileUrl") or post.get("authorUrl") or ""
         logger.info("[STEP 1/4] Post scraped | author=%s | text_length=%d", author_name, len(post_text))
 
         # STEP 2 — Scrape LinkedIn profile via Apify

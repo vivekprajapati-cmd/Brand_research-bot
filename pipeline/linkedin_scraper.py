@@ -82,7 +82,7 @@ _POST_PAGE_FUNCTION = """
 async function pageFunction(context) {
     const { page } = context;
     await page.waitForTimeout(3000);
-    const text = await page.evaluate(() => {
+    return await page.evaluate(() => {
         const post = document.querySelector('.feed-shared-text') ||
                      document.querySelector('.attributed-text-segment-list__content') ||
                      document.querySelector('[data-test-id="main-feed-activity-card__commentary"]');
@@ -90,13 +90,44 @@ async function pageFunction(context) {
                        document.querySelector('.update-components-actor__name');
         const company = document.querySelector('.feed-shared-actor__sub-description') ||
                         document.querySelector('.update-components-actor__meta');
+        const authorLink = document.querySelector('.feed-shared-actor__container-link') ||
+                           document.querySelector('.update-components-actor__meta-link');
         return {
             text: post ? post.innerText.trim() : document.title,
             authorName: author ? author.innerText.trim() : '',
             company: company ? company.innerText.trim() : '',
+            authorUrl: authorLink ? authorLink.href : '',
         };
     });
-    return text;
+}
+"""
+
+_PROFILE_PAGE_FUNCTION = """
+async function pageFunction(context) {
+    const { page } = context;
+    await page.waitForTimeout(3000);
+    return await page.evaluate(() => {
+        const name = document.querySelector('.top-card-layout__title') ||
+                     document.querySelector('h1.text-heading-xlarge');
+        const headline = document.querySelector('.top-card-layout__headline') ||
+                         document.querySelector('.text-body-medium');
+        const followers = document.querySelector('.top-card-layout__first-subline') ||
+                          document.querySelector('[data-anonymize="followers-count"]') ||
+                          document.querySelector('.ph5 span.t-bold');
+        const website = document.querySelector('a[data-control-name="contact_see_more"]') ||
+                        document.querySelector('.top-card--clickable');
+        const bio = document.querySelector('.top-card-layout__card-inner .ph5') ||
+                    document.querySelector('[data-anonymize="about-content"]');
+        const followersText = followers ? followers.innerText : '';
+        const followersNum = parseInt(followersText.replace(/[^0-9]/g, '')) || 0;
+        return {
+            fullName: name ? name.innerText.trim() : '',
+            headline: headline ? headline.innerText.trim() : '',
+            followersCount: followersNum,
+            website: website ? website.href : '',
+            about: bio ? bio.innerText.trim().slice(0, 500) : '',
+        };
+    });
 }
 """
 
@@ -121,7 +152,7 @@ def scrape_profile(profile_url: str) -> dict:
     try:
         input_data = {
             "startUrls": [{"url": profile_url}],
-            "pageFunction": _POST_PAGE_FUNCTION,
+            "pageFunction": _PROFILE_PAGE_FUNCTION,
             "proxyConfiguration": {"useApifyProxy": True},
         }
         items = _run_actor(_PROFILE_ACTOR, input_data, token)
