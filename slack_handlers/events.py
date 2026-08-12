@@ -25,6 +25,39 @@ logger = get_logger("slack_handlers.events")
 
 _IMAGE_FILETYPES = {"jpeg", "jpg", "png", "webp", "gif"}
 
+
+def _friendly_error(exc: Exception) -> str:
+    msg = str(exc)
+    if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+        return "Gemini AI hit its daily limit. Try again tomorrow or ask Darshit to upgrade the API plan."
+    if "404" in msg and "model" in msg.lower():
+        return "Gemini model not found. The AI model name may be outdated — check with the tech team."
+    if "Instaloader" in msg or "instaloader" in msg:
+        return "Couldn't download the Instagram post. It may be private, deleted, or Instagram is blocking us temporarily."
+    if "InstaloaderException" in msg or "shortcode" in msg.lower():
+        return "Invalid Instagram URL. Make sure you're sending a post link (instagram.com/p/... or /reel/...)."
+    if "Worksheet not found" in msg:
+        return "Google Sheet tab 'Brand Research' not found. Check that the tab exists and is named correctly."
+    if "Spreadsheet not found" in msg:
+        return "Can't access the Google Sheet. Check that the sheet ID is correct in settings."
+    if "auth refresh" in msg.lower() or "RefreshError" in msg:
+        return "Google authentication expired. The service account credentials may need to be renewed."
+    if "APIFY_API_TOKEN" in msg:
+        return "Apify API token is missing. Add APIFY_API_TOKEN to the environment variables."
+    if "Apify run FAILED" in msg or "Apify run ABORTED" in msg:
+        return "The Apify scraper failed. LinkedIn or Instagram may have blocked the request — try again in a few minutes."
+    if "timed out" in msg.lower() or "TimeoutError" in msg or "timeout" in msg.lower():
+        return "The request timed out. The platform may be slow right now — try again shortly."
+    if "No post data" in msg:
+        return "Couldn't find any data for this post. It may be private or the URL may be incorrect."
+    if "No image found" in msg or "not a valid image" in msg.lower():
+        return "The file doesn't look like a valid image. Try sending a JPG or PNG screenshot."
+    if "No brand name or handle" in msg:
+        return "Couldn't identify a brand in this post. The image may not contain clear brand info."
+    if "403" in msg or "permission" in msg.lower():
+        return "Permission denied on Google Sheets. Make sure the service account has Editor access to the sheet."
+    return f"Something went wrong: {msg[:200]}"
+
 _executor = ThreadPoolExecutor(max_workers=2)
 
 _CONFIDENCE_THRESHOLD = 0.5
@@ -152,7 +185,7 @@ def _run_pipeline(
             traceback.format_exc(),
         )
         try:
-            _post_thread(client, channel, message_ts, f"Something went wrong: {exc}")
+            _post_thread(client, channel, message_ts, _friendly_error(exc))
         except Exception as post_exc:  # pragma: no cover - last resort
             logger.error("Failed to post error to Slack: %s", post_exc)
     finally:
@@ -230,7 +263,7 @@ def _run_linkedin_pipeline(
     except Exception as exc:
         logger.error("LinkedIn pipeline failed: %s\n%s", exc, traceback.format_exc())
         try:
-            _post_thread(client, channel, message_ts, f"Something went wrong: {exc}")
+            _post_thread(client, channel, message_ts, _friendly_error(exc))
         except Exception as post_exc:
             logger.error("Failed to post error to Slack: %s", post_exc)
 
