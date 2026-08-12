@@ -9,4 +9,3 @@ htmlcov/
 venv/
 .DS_Store
 .env.example
-
