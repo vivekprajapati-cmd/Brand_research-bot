@@ -130,13 +130,24 @@ def research_brand(
             sources.append(url)
     snippets = _format_snippets(results)
 
+    # Check if any result actually mentions the brand — skip synthesis if not
+    brand_lower = brand_name.lower()
+    relevant = any(
+        brand_lower in (r.get("title") or "").lower()
+        or brand_lower in (r.get("body") or r.get("snippet") or r.get("description") or "").lower()
+        for r in results
+    )
+    if not relevant:
+        logger.info("No relevant web results for %r — skipping synthesis", brand_name)
+        return {
+            "research_notes": f"No public web data found. Research manually via Instagram (@{handle}).",
+            "sources": [],
+        }
+
     try:
         notes = _synthesise(api_key, brand_name, handle, snippets)
     except Exception as exc:
         logger.warning("Synthesis failed, using fallback brief: %s", exc)
-        notes = (
-            f"{brand_name} — research synthesis unavailable. Review the following "
-            f"search snippets manually before outreach: {snippets[:500]}"
-        )
+        notes = f"No public web data found. Research manually via Instagram (@{handle})."
 
     return {"research_notes": notes, "sources": sources}
