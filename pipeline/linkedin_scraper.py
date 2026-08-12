@@ -1,8 +1,7 @@
-"""LinkedIn post and profile scraping via Apify harvestapi.
+"""LinkedIn scraping.
 
-harvestapi~linkedin-profile-posts works without LinkedIn login.
-We derive the author profile URL from the post URL, scrape up to 20
-recent posts, and match the specific post by its activity ID.
+Post text  → apify~playwright-scraper on the exact post URL
+Other data → harvestapi~linkedin-profile-posts on the author profile
 """
 
 import os
@@ -15,10 +14,10 @@ from utils.logger import get_logger
 
 logger = get_logger("pipeline.linkedin_scraper")
 
-_ACTOR = "harvestapi~linkedin-profile-posts"
 _BASE_URL = "https://api.apify.com/v2"
+_POST_ACTOR = "apify~playwright-scraper"
+_PROFILE_ACTOR = "harvestapi~linkedin-profile-posts"
 _POLL_INTERVAL = 5
-_TIMEOUT = 180
 
 
 class LinkedInScrapeError(Exception):
@@ -35,9 +34,9 @@ def _api_token() -> str:
     return token
 
 
-def _run_actor(input_data: dict, token: str) -> list:
+def _run_actor(actor_id: str, input_data: dict, token: str, timeout: int = 180) -> list:
     run_resp = requests.post(
-        f"{_BASE_URL}/acts/{_ACTOR}/runs",
+        f"{_BASE_URL}/acts/{actor_id}/runs",
         params={"token": token},
         json=input_data,
         timeout=30,
@@ -46,9 +45,9 @@ def _run_actor(input_data: dict, token: str) -> list:
     data = run_resp.json()["data"]
     run_id = data["id"]
     dataset_id = data["defaultDatasetId"]
-    logger.info("Apify harvestapi run started | run_id=%s", run_id)
+    logger.info("Apify run started | actor=%s | run_id=%s", actor_id, run_id)
 
-    deadline = time.time() + _TIMEOUT
+    deadline = time.time() + timeout
     while time.time() < deadline:
         time.sleep(_POLL_INTERVAL)
         status = requests.get(
@@ -59,13 +58,13 @@ def _run_actor(input_data: dict, token: str) -> list:
         if status == "SUCCEEDED":
             break
         if status in ("FAILED", "ABORTED", "TIMED-OUT"):
-            raise LinkedInScrapeError(f"Apify run {status}")
+            raise LinkedInScrapeError(f"Apify run {status} | actor={actor_id}")
     else:
-        raise LinkedInScrapeError("Apify run timed out")
+        raise LinkedInScrapeError(f"Apify run timed out | actor={actor_id}")
 
     return requests.get(
         f"{_BASE_URL}/datasets/{dataset_id}/items",
-        params={"token": token, "limit": 20},
+        params={"token": token, "limit": 5},
         timeout=15,
     ).json()
 
@@ -87,98 +86,106 @@ def profile_url_from(url: str) -> str | None:
     return None
 
 
-def _activity_id(url: str) -> str | None:
-    """Extract the numeric activity ID from a LinkedIn post URL."""
-    m = re.search(r'[-_](\d{15,})', url)
-    return m.group(1) if m else None
+# ── Playwright page function (exact post text) ────────────────────────────────
 
+_POST_PAGE_FUNCTION = """
+async function pageFunction(context) {
+    const { page } = context;
 
-# ── Parsing ───────────────────────────────────────────────────────────────────
+    // Grab text early before login modal covers it
+    await page.waitForTimeout(2000);
 
-def _parse_post(item: dict) -> dict:
-    author = item.get("author") or {}
-    if not isinstance(author, dict):
-        author = {}
+    // Dismiss any sign-in modal
+    try {
+        const dismiss = await page.$('button[data-tracking-control-name="guest_homepage-basic_sign-in-modal__dismiss"]') ||
+                        await page.$('button.contextual-sign-in-modal__modal-dismiss') ||
+                        await page.$('button[aria-label="Dismiss"]');
+        if (dismiss) await dismiss.click();
+        await page.waitForTimeout(500);
+    } catch(e) {}
 
-    author_name = (
-        author.get("name") or author.get("fullName")
-        or item.get("authorName") or ""
-    )
-    author_url = (
-        author.get("url") or author.get("profileUrl") or author.get("linkedinUrl")
-        or item.get("authorUrl") or ""
-    )
-    followers_raw = (
-        author.get("followersCount") or author.get("followers")
-        or author.get("followerCount") or item.get("followersCount") or 0
-    )
-    try:
-        followers = int(str(followers_raw).replace(",", ""))
-    except (TypeError, ValueError):
-        followers = 0
+    // Expand "see more"
+    try {
+        const seeMore = await page.$('button.feed-shared-inline-show-more-text__see-more-less-toggle') ||
+                        await page.$('button.see-more');
+        if (seeMore) { await seeMore.click(); await page.waitForTimeout(500); }
+    } catch(e) {}
 
-    bio = (
-        author.get("headline") or author.get("subtitle") or author.get("tagline")
-        or item.get("authorHeadline") or ""
-    )
-    text = (
-        item.get("content") or item.get("text") or item.get("commentary")
-        or item.get("postContent") or item.get("fullText") or item.get("description") or ""
-    )
-    website = author.get("website") or ""
+    return await page.evaluate(() => {
+        const sel = [
+            '.feed-shared-update-v2__description',
+            '.feed-shared-text',
+            '.attributed-text-segment-list__content',
+            '[data-test-id="main-feed-activity-card__commentary"]',
+        ];
+        let text = '';
+        for (const s of sel) {
+            const el = document.querySelector(s);
+            if (el && el.innerText.trim().length > 5) { text = el.innerText.trim(); break; }
+        }
 
-    return {
-        "authorName": author_name,
-        "authorUrl": author_url,
-        "company": bio,
-        "text": text,
-        "followersCount": followers,
-        "website": website,
-        "_itemId": str(item.get("id") or item.get("entityId") or ""),
-        "_itemUrl": item.get("linkedinUrl") or item.get("shareLinkedinUrl") or "",
-    }
+        const authorEl = document.querySelector('.feed-shared-actor__name') ||
+                         document.querySelector('.update-components-actor__name');
+        const authorLinkEl = document.querySelector('.feed-shared-actor__container-link') ||
+                             document.querySelector('.update-components-actor__meta-link');
+        const companyEl = document.querySelector('.feed-shared-actor__sub-description') ||
+                          document.querySelector('.update-components-actor__meta');
+
+        return {
+            text,
+            authorName: authorEl ? authorEl.innerText.trim() : '',
+            authorUrl:  authorLinkEl ? authorLinkEl.href : '',
+            company:    companyEl ? companyEl.innerText.trim() : '',
+        };
+    });
+}
+"""
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def scrape_post(url: str) -> dict:
-    """Scrape a LinkedIn post URL. Matches the specific post by activity ID."""
+    """Scrape exact post text via playwright. Returns {text, authorName, authorUrl, company}."""
     token = _api_token()
-    profile_url = profile_url_from(url)
-    if not profile_url:
-        raise LinkedInScrapeError(
-            f"Cannot derive a LinkedIn profile URL from: {url}. "
-            "Supported formats: /in/handle, /company/name, /posts/handle_id."
-        )
-
-    logger.info("Fetching posts for profile | profile_url=%s", profile_url)
-    items = _run_actor({"targetUrls": [profile_url], "maxPosts": 20}, token)
+    items = _run_actor(_POST_ACTOR, {
+        "startUrls": [{"url": url}],
+        "pageFunction": _POST_PAGE_FUNCTION,
+        "proxyConfiguration": {"useApifyProxy": True},
+    }, token, timeout=180)
     if not items:
-        raise LinkedInScrapeError(f"No posts returned for {profile_url}")
-
-    target = _activity_id(url)
-    matched = None
-    if target:
-        for item in items:
-            item_id = str(item.get("id") or item.get("entityId") or "")
-            item_url = item.get("linkedinUrl") or item.get("shareLinkedinUrl") or ""
-            if target in item_id or target in item_url:
-                matched = item
-                logger.info("Matched post by activity ID %s", target)
-                break
-
-    if matched is None:
-        matched = items[0]
-        logger.warning("No activity ID match for %s — using most recent post", target)
-
-    parsed = _parse_post(matched)
-    logger.info(
-        "Post scraped | author=%s | followers=%d | text_len=%d",
-        parsed["authorName"], parsed["followersCount"], len(parsed["text"]),
-    )
-    return parsed
+        raise LinkedInScrapeError(f"No data returned for {url}")
+    item = items[0]
+    logger.info("Post scraped | author=%s | text_len=%d", item.get("authorName", ""), len(item.get("text") or ""))
+    return item
 
 
 def scrape_profile(profile_url: str) -> dict:
-    """Unused — profile data is returned inline with posts by harvestapi."""
-    return {}
+    """Get author details via harvestapi. Returns {followersCount, headline, website}. Never raises."""
+    token = _api_token()
+    try:
+        items = _run_actor(_PROFILE_ACTOR, {
+            "targetUrls": [profile_url],
+            "maxPosts": 1,
+        }, token, timeout=120)
+        if not items:
+            return {}
+        item = items[0]
+        author = item.get("author") or {}
+        if not isinstance(author, dict):
+            author = {}
+        followers_raw = (
+            author.get("followersCount") or author.get("followers")
+            or item.get("followersCount") or 0
+        )
+        try:
+            followers = int(str(followers_raw).replace(",", ""))
+        except (TypeError, ValueError):
+            followers = 0
+        return {
+            "followersCount": followers,
+            "headline": author.get("headline") or author.get("subtitle") or "",
+            "website": author.get("website") or "",
+        }
+    except Exception as exc:
+        logger.warning("Profile scrape failed (non-fatal): %s", exc)
+        return {}

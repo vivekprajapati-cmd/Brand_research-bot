@@ -206,17 +206,24 @@ def _run_linkedin_pipeline(
     try:
         _post_thread(client, channel, message_ts, "Processing LinkedIn post...")
 
-        # STEP 1 — Scrape exact LinkedIn post URL via Apify playwright
-        logger.info("[STEP 1/3] Scraping LinkedIn post | url=%s", linkedin_url)
+        # STEP 1 — Playwright scrapes exact post URL for verbatim text + author URL
+        logger.info("[STEP 1/4] Scraping LinkedIn post | url=%s", linkedin_url)
         post = linkedin_scraper.scrape_post(linkedin_url)
         author_name = post.get("authorName") or ""
         post_text = post.get("text") or ""
         author_url = post.get("authorUrl") or ""
-        logger.info("[STEP 1/3] Scraped | author=%s | text_len=%d", author_name, len(post_text))
+        logger.info("[STEP 1/4] Post scraped | author=%s | text_len=%d", author_name, len(post_text))
 
-        # STEP 2 — Gemini extracts email/phone/website/niche from post text
-        # Followers/bio come from harvestapi author data already in `post`
-        logger.info("[STEP 2/3] Extracting brand fields from post text")
+        # STEP 2 — Harvestapi gets profile details (followers, bio) — non-fatal if it fails
+        profile_url = author_url or linkedin_scraper.profile_url_from(linkedin_url) or ""
+        profile_data = {}
+        if profile_url:
+            logger.info("[STEP 2/4] Fetching profile details | url=%s", profile_url)
+            profile_data = linkedin_scraper.scrape_profile(profile_url)
+            logger.info("[STEP 2/4] Profile | followers=%s", profile_data.get("followersCount"))
+
+        # STEP 3 — Gemini extracts email/phone/niche from post text
+        logger.info("[STEP 3/4] Extracting brand fields from post text")
         brand = vision_extractor.extract_brand_from_text(post_text)
         brand_name = brand.get("brand_name") or post.get("company") or author_name
         niche = brand.get("niche") or ""
@@ -224,25 +231,25 @@ def _run_linkedin_pipeline(
         if not handle or handle.startswith("http"):
             derived = linkedin_scraper.profile_url_from(linkedin_url)
             handle = derived.rstrip("/").split("/")[-1] if derived else author_name
-        logger.info("[STEP 2/3] Extracted | brand=%s | handle=%s | email=%s", brand_name, handle, brand.get("email"))
+        logger.info("[STEP 3/4] Extracted | brand=%s | handle=%s | email=%s", brand_name, handle, brand.get("email"))
 
         profile = {
             "full_name": author_name,
-            "bio": post.get("company") or "",
-            "followers": int(post.get("followersCount") or 0),
+            "bio": profile_data.get("headline") or post.get("company") or "",
+            "followers": int(profile_data.get("followersCount") or 0),
             "following": 0,
             "post_count": 0,
-            "website": brand.get("website"),
+            "website": profile_data.get("website") or brand.get("website"),
             "is_verified": False,
             "is_private": False,
         }
 
         # STEP 3 — Generate outreach
-        logger.info("[STEP 3/3] Searching web + generating outreach | brand=%s", brand_name)
+        logger.info("[STEP 4/4] Searching web + generating outreach | brand=%s", brand_name)
         snippets = web_researcher.search_brand(brand_name)
         merged = {"brand_name": brand_name, "handle": handle, "niche": niche, "post_data": post_text, "profile": profile}
         outreach = outreach_writer.generate_outreach(merged, snippets)
-        logger.info("[STEP 3/3] Outreach done | linkedin_msg_len=%d", len(outreach.get("linkedin_msg", "")))
+        logger.info("[STEP 4/4] Outreach done | linkedin_msg_len=%d", len(outreach.get("linkedin_msg", "")))
 
         # STEP 3 cont — Write to Sheets
         brand_data = {
