@@ -5,6 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from pipeline import runner  # noqa: E402
 from slack_handlers import events  # noqa: E402
 
 
@@ -44,16 +45,14 @@ def _mock_download(monkeypatch, tmp_path):
 
     img_path = str(tmp_path / "img.jpg")
     Image.new("RGB", (40, 40), color=(10, 200, 100)).save(img_path, format="JPEG")
-    monkeypatch.setattr(events.downloader, "download_image", lambda *a, **k: img_path)
-    monkeypatch.setattr(events.downloader, "cleanup", lambda *a, **k: None)
+    monkeypatch.setattr(runner.downloader, "download_image", lambda *a, **k: img_path)
+    monkeypatch.setattr(runner.downloader, "cleanup", lambda *a, **k: None)
     return img_path
 
 
 def _mock_vision(monkeypatch, brand=None):
-    from pipeline import vision_extractor
-
     monkeypatch.setattr(
-        events.vision_extractor,
+        runner.vision_extractor,
         "extract_brand",
         lambda *a, **k: brand
         or {
@@ -71,7 +70,7 @@ def _mock_vision(monkeypatch, brand=None):
 
 def _mock_instagram(monkeypatch, profile=None):
     monkeypatch.setattr(
-        events.instagram_scraper,
+        runner.instagram_scraper,
         "get_profile",
         lambda handle, *a, **k: profile
         or {
@@ -87,11 +86,16 @@ def _mock_instagram(monkeypatch, profile=None):
     )
 
 
-def _mock_research(monkeypatch, notes="Synthesised brief."):
+def _mock_research(monkeypatch):
     monkeypatch.setattr(
-        events.web_researcher,
-        "research_brand",
-        lambda *a, **k: {"research_notes": notes, "sources": ["https://x.com/1"]},
+        runner.web_researcher,
+        "search_brand",
+        lambda *a, **k: "Glow Skincare is a clean beauty brand.",
+    )
+    monkeypatch.setattr(
+        runner.outreach_writer,
+        "generate_outreach",
+        lambda *a, **k: {"linkedin_msg": "Hi Glow!", "email": "Subject: Hi\n\nBody"},
     )
 
 
@@ -107,10 +111,10 @@ def test_full_pipeline_writes_sheet_row(monkeypatch, tmp_path, file_info):
         written.update(brand_data)
         return {"action": "appended", "row_num": 3}
 
-    monkeypatch.setattr(events.sheets_writer, "write_brand", fake_write)
+    monkeypatch.setattr(runner.sheets_writer, "write_brand", fake_write)
 
     client = MockClient(file_info)
-    events._run_pipeline(client, "C123", file_info, "1.000", "U123")
+    runner.run_instagram_pipeline(client, "C123", file_info, "1.000", "U123")
 
     assert written["brand_name"] == "Glow Skincare"
     assert written["handle"] == "glowskincare"
@@ -124,21 +128,23 @@ def test_pipeline_private_profile_continues(monkeypatch, tmp_path, file_info):
     _mock_download(monkeypatch, tmp_path)
     _mock_vision(monkeypatch)
 
-    def private_profile(handle, *a, **k):
-        raise events.instagram_scraper.PrivateProfileError("private")
+    from pipeline.instagram_scraper import PrivateProfileError
 
-    monkeypatch.setattr(events.instagram_scraper, "get_profile", private_profile)
+    def private_profile(handle, *a, **k):
+        raise PrivateProfileError("private")
+
+    monkeypatch.setattr(runner.instagram_scraper, "get_profile", private_profile)
     _mock_research(monkeypatch)
 
     written = {}
     monkeypatch.setattr(
-        events.sheets_writer,
+        runner.sheets_writer,
         "write_brand",
         lambda data: written.update(data) or {"action": "appended", "row_num": 4},
     )
 
     client = MockClient(file_info)
-    events._run_pipeline(client, "C123", file_info, "1.000", "U123")
+    runner.run_instagram_pipeline(client, "C123", file_info, "1.000", "U123")
 
     assert written["profile"]["is_private"] is True
     assert written["profile"]["followers"] == 0
@@ -165,13 +171,13 @@ def test_pipeline_low_confidence_sets_review_needed(monkeypatch, tmp_path, file_
 
     written = {}
     monkeypatch.setattr(
-        events.sheets_writer,
+        runner.sheets_writer,
         "write_brand",
         lambda data: written.update(data) or {"action": "appended", "row_num": 5},
     )
 
     client = MockClient(file_info)
-    events._run_pipeline(client, "C123", file_info, "1.000", "U123")
+    runner.run_instagram_pipeline(client, "C123", file_info, "1.000", "U123")
 
     assert written["status"] == "Review Needed"
     assert written["handle"] == ""
@@ -183,10 +189,9 @@ def test_pipeline_error_posts_to_slack(monkeypatch, tmp_path, file_info):
     def boom(*a, **k):
         raise RuntimeError("vision failed")
 
-    monkeypatch.setattr(events.vision_extractor, "extract_brand", boom)
-    _mock_research(monkeypatch)
+    monkeypatch.setattr(runner.vision_extractor, "extract_brand", boom)
 
     client = MockClient(file_info)
-    events._run_pipeline(client, "C123", file_info, "1.000", "U123")
+    runner.run_instagram_pipeline(client, "C123", file_info, "1.000", "U123")
 
     assert any("Something went wrong" in m for m in client.messages)

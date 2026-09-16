@@ -80,7 +80,7 @@ def test_file_shared_triggers_pipeline(monkeypatch, handlers, image_file):
     def fake_run(client_, channel, file_info, ts, username):
         pipeline_calls.append((channel, file_info["id"], ts, username))
 
-    monkeypatch.setattr(events, "_run_pipeline", fake_run)
+    monkeypatch.setattr(events, "run_instagram_pipeline", fake_run)
     for handler in handlers["file_shared"]:
         handler(client, event, {}, _logger)
     assert pipeline_calls
@@ -91,7 +91,7 @@ def test_file_shared_ignores_bot_user(monkeypatch, handlers, image_file):
     client = MockClient(image_file)
     event = {"channel_id": "C123", "file_id": "F100", "user_id": "USLACKBOT", "ts": "1.000"}
     pipeline_calls = []
-    monkeypatch.setattr(events, "_run_pipeline", lambda *a, **k: pipeline_calls.append(a))
+    monkeypatch.setattr(events, "run_instagram_pipeline", lambda *a, **k: pipeline_calls.append(a))
     for handler in handlers["file_shared"]:
         handler(client, event, {}, _logger)
     assert not pipeline_calls
@@ -109,7 +109,7 @@ def test_message_with_image_triggers_only_image(monkeypatch, handlers):
         ],
     }
     pipeline_calls = []
-    monkeypatch.setattr(events, "_run_pipeline", lambda *a, **k: pipeline_calls.append(a))
+    monkeypatch.setattr(events, "run_instagram_pipeline", lambda *a, **k: pipeline_calls.append(a))
     for handler in handlers["message"]:
         handler(client, event, {}, _logger)
     assert any(call[2]["id"] == "F200" for call in pipeline_calls)
